@@ -1,0 +1,4 @@
+C:/Users/Кирило/Desktop/OOP_LB/project/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/Кирило/Desktop/OOP_LB/project/build/CMakeFiles/ZERO_CHECK.dir
+C:/Users/Кирило/Desktop/OOP_LB/project/build/backend/CMakeFiles/oop_backend.dir
+C:/Users/Кирило/Desktop/OOP_LB/project/build/backend/CMakeFiles/ALL_BUILD.dir

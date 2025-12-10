@@ -1,0 +1,6 @@
+# Add Python dependencies required by frontend here (if any)
+# Example:
+# requests
+# websocket-client
+
+# Currently the frontend appears to use only the Python standard library.
