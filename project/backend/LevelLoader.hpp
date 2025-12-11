@@ -2,5 +2,5 @@
 #include "Level.hpp"
 #include <string>
 
-// Завантаження рівня з JSON-файлу
+// Новий завантажувач рівнів у форматі worldview
 Level loadLevelFromFile(const std::string& path);

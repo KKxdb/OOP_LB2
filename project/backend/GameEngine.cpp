@@ -70,7 +70,11 @@ std::string GameEngine::processCommand(const std::string& data) {
     json response;
     response["grid_w"] = level.getWidth();
     response["grid_h"] = level.getHeight();
-    response["grid"] = level.getGrid();
+    response["grid"] = level.getGrid(); // залишаємо, Python використовує
+    response["world"]["walls"] = json::array();
+    response["world"]["targets"] = json::array();
+    response["world"]["boxes"] = json::array();
+    
 
     json robots = json::array();
     for (auto& r : level.getRobots()) {
@@ -100,6 +104,22 @@ std::string GameEngine::processCommand(const std::string& data) {
 
     response["completed"] = level.isCompleted();
     return response.dump();
+
+        // WALLS
+    for (int y = 0; y < level.getHeight(); ++y)
+        for (int x = 0; x < level.getWidth(); ++x)
+            if (level.isWall(x,y))
+                response["world"]["walls"].push_back({x,y});
+
+// TARGETS
+    for (int y = 0; y < level.getHeight(); ++y)
+        for (int x = 0; x < level.getWidth(); ++x)
+            if (level.isTarget(x,y))
+                response["world"]["targets"].push_back({x,y});
+
+// BOXES
+    for (auto& b : level.getBoxes())
+        response["world"]["boxes"].push_back({b.x, b.y});
 }
 
 void GameEngine::loadLevel(Level&& lvl) {
@@ -159,4 +179,6 @@ nlohmann::json GameEngine::getStateJson() const {
 
     j["completed"] = level.isCompleted();
     return j;
+
+    
 }
