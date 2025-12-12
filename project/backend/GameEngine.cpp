@@ -1,126 +1,11 @@
 #include "GameEngine.hpp"
-#include "WorkerRobot.hpp"
-#include "ControllerRobot.hpp"
-#include "Level.hpp"
 #include <nlohmann/json.hpp>
-#include <iostream>
+#include "Level.hpp"
+
 
 using json = nlohmann::json;
 
-GameEngine::GameEngine()
-    : level(10, 10) {}
-
-std::string GameEngine::processCommand(const std::string& data) {
-    json cmd = json::parse(data);
-    const std::string action = cmd.value("action", "");
-
-    if (action == "add_worker") {
-        int x = cmd.value("x", 0);
-        int y = cmd.value("y", 0);
-        RobotState rs{(int)level.getRobots().size()+1, RobotType::Worker, x, y};
-        level.addRobot(std::make_unique<WorkerRobot>(&rs));
-    } else if (action == "add_controller") {
-        int x = cmd.value("x", 0);
-        int y = cmd.value("y", 0);
-        RobotState rs{(int)level.getRobots().size()+1, RobotType::Controller, x, y};
-        level.addRobot(std::make_unique<ControllerRobot>(&rs));
-    } else if (action == "add_wall") {
-        level.addWall(cmd.value("x", 0), cmd.value("y", 0));
-    } else if (action == "add_target") {
-        level.addTarget(cmd.value("x", 0), cmd.value("y", 0));
-    } else if (action == "add_box") {
-        level.addBox(cmd.value("x", 0), cmd.value("y", 0));
-    } else if (action == "step") {
-        std::vector<Command> cmds;
-        if (cmd.contains("commands")) {
-            for (auto& jc : cmd["commands"]) {
-                Command c;
-                c.robotId = jc.value("robot_id", 0);
-                std::string type = jc.value("cmd", "");
-                if (type == "move") c.type = CommandType::Move;
-                else if (type == "pick") c.type = CommandType::Pick;
-                else if (type == "drop") c.type = CommandType::Drop;
-                else if (type == "give") c.type = CommandType::Give;
-                else c.type = CommandType::Broadcast;
-
-                std::string dir = jc.value("dir", "");
-                if (dir == "up") c.dir = Direction::Up;
-                else if (dir == "down") c.dir = Direction::Down;
-                else if (dir == "left") c.dir = Direction::Left;
-                else c.dir = Direction::Right;
-
-                cmds.push_back(c);
-            }
-        }
-
-        WorldView view{level.getWidth(), level.getHeight(),
-                       &level.getGridCells(), &level.getRobotStates(), &level.getBoxes()};
-
-        for (auto& c : cmds) {
-            for (auto& r : level.getRobots()) {
-                if (r->getState()->id == c.robotId) {
-                    r->execute(c, view);
-                }
-            }
-        }
-
-        level.update();
-    }
-
-    json response;
-    response["grid_w"] = level.getWidth();
-    response["grid_h"] = level.getHeight();
-    response["grid"] = level.getGrid(); // залишаємо, Python використовує
-    response["world"]["walls"] = json::array();
-    response["world"]["targets"] = json::array();
-    response["world"]["boxes"] = json::array();
-    
-
-    json robots = json::array();
-    for (auto& r : level.getRobots()) {
-        auto* st = r->getState();
-        json rr;
-        rr["id"] = st->id;
-        rr["type"] = (st->type == RobotType::Worker) ? "worker" : "controller";
-        rr["x"] = st->x;
-        rr["y"] = st->y;
-        rr["alive"] = st->alive;
-        rr["carrying"] = st->carrying;
-        rr["box_id"] = st->boxId.has_value() ? *st->boxId : 0;
-        robots.push_back(rr);
-    }
-    response["robots"] = robots;
-
-    json boxes = json::array();
-    for (const auto& b : level.getBoxes()) {
-        json bb;
-        bb["id"] = b.id;
-        bb["x"] = b.x;
-        bb["y"] = b.y;
-        bb["delivered"] = b.delivered;
-        boxes.push_back(bb);
-    }
-    response["boxes"] = boxes;
-
-    response["completed"] = level.isCompleted();
-    return response.dump();
-
-        // WALLS
-    for (int y = 0; y < level.getHeight(); ++y)
-        for (int x = 0; x < level.getWidth(); ++x)
-            if (level.isWall(x,y))
-                response["world"]["walls"].push_back({x,y});
-
-// TARGETS
-    for (int y = 0; y < level.getHeight(); ++y)
-        for (int x = 0; x < level.getWidth(); ++x)
-            if (level.isTarget(x,y))
-                response["world"]["targets"].push_back({x,y});
-
-// BOXES
-    for (auto& b : level.getBoxes())
-        response["world"]["boxes"].push_back({b.x, b.y});
-}
+GameEngine::GameEngine() : level(10,10) {}
 
 void GameEngine::loadLevel(Level&& lvl) {
     level = std::move(lvl);
@@ -128,57 +13,70 @@ void GameEngine::loadLevel(Level&& lvl) {
 
 Robot* GameEngine::findRobotById(int id) {
     for (auto& r : level.getRobots()) {
-        if (r->getState()->id == id) return r.get();
+        auto* st = r->getState();
+        if (st && st->id == id) return r.get();
     }
     return nullptr;
 }
 
 void GameEngine::applyCommands(const std::vector<Command>& cmds) {
-    WorldView view{level.getWidth(), level.getHeight(),
-                   &level.getGridCells(), &level.getRobotStates(), &level.getBoxes()};
+    WorldView view{
+        level.getWidth(),
+        level.getHeight(),
+        &level.getGridCells(),
+        &level.getRobotStates(),
+        &level.getBoxes()
+    };
 
-    for (const auto& c : cmds) {
+    for (auto& c : cmds) {
         Robot* r = findRobotById(c.robotId);
         if (r) r->execute(c, view);
     }
 
+    level.incrementMoves();
     level.update();
 }
 
-nlohmann::json GameEngine::getStateJson() const {
-    nlohmann::json j;
-    j["grid_w"] = level.getWidth();
-    j["grid_h"] = level.getHeight();
-    j["grid"] = level.getGrid();
+json GameEngine::getStateJson() const {
+    json st;
 
-    nlohmann::json robots = nlohmann::json::array();
-    for (const auto& r : level.getRobots()) {
-        auto* st = r->getState();
-        nlohmann::json rr;
-        rr["id"] = st->id;
-        rr["type"] = (st->type == RobotType::Worker) ? "worker" : "controller";
-        rr["x"] = st->x;
-        rr["y"] = st->y;
-        rr["alive"] = st->alive;
-        rr["carrying"] = st->carrying;
-        rr["box_id"] = st->boxId.has_value() ? *st->boxId : 0;
-        robots.push_back(rr);
+    st["width"]  = level.getWidth();
+    st["height"] = level.getHeight();
+
+    // walls
+    st["walls"] = json::array();
+    for (auto& w : level.getWalls()) {
+        st["walls"].push_back({ {"x", w.first}, {"y", w.second} });
     }
-    j["robots"] = robots;
 
-    nlohmann::json boxes = nlohmann::json::array();
-    for (const auto& b : level.getBoxes()) {
-        nlohmann::json bb;
-        bb["id"] = b.id;
-        bb["x"] = b.x;
-        bb["y"] = b.y;
-        bb["delivered"] = b.delivered;
-        boxes.push_back(bb);
+    // targets
+    st["targets"] = json::array();
+    for (auto& t : level.getTargets()) {
+        st["targets"].push_back({ {"x", t.first}, {"y", t.second} });
     }
-    j["boxes"] = boxes;
 
-    j["completed"] = level.isCompleted();
-    return j;
+    // boxes
+    st["boxes"] = json::array();
+    for (auto& b : level.getBoxes()) {
+        st["boxes"].push_back({ {"x", b.x}, {"y", b.y} });
+    }
 
-    
+    // robots
+    st["robots"] = json::array();
+    for (auto& r : level.getRobots()) {
+        auto* rs = r->getState();
+        if (!rs) continue;
+
+        st["robots"].push_back({
+            {"x", rs->x},
+            {"y", rs->y},
+            {"id", rs->id},
+            {"type", rs->type == RobotType::Worker ? "worker" : "controller"}
+        });
+    }
+
+    // упаковка
+    json out;
+    out["state"] = st;
+    return out;
 }

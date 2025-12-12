@@ -1,55 +1,99 @@
 #include "RequestHandler.hpp"
-#include "LevelLoader.hpp"   // тепер підключаємо хедер, а не cpp
-#include <stdexcept>
+#include "GameEngine.hpp"
+#include "LevelLoader.hpp"
+#include "WorkerRobot.hpp"
+#include "ControllerRobot.hpp"
+
+#include <nlohmann/json.hpp>
+#include <iostream>
 
 using json = nlohmann::json;
 
-static Direction parseDir(const std::string& s) {
-    if (s == "up") return Direction::Up;
-    if (s == "down") return Direction::Down;
-    if (s == "left") return Direction::Left;
-    return Direction::Right;
-}
-
-static CommandType parseCmdType(const std::string& s) {
-    if (s == "move") return CommandType::Move;
-    if (s == "pick") return CommandType::Pick;
-    if (s == "drop") return CommandType::Drop;
-    if (s == "give") return CommandType::Give;
-    return CommandType::Broadcast;
-}
-
-Command RequestHandler::parseCommand(const json& j) {
-    Command c;
-    c.robotId = j.at("robot_id").get<int>();
-    c.type = parseCmdType(j.at("cmd").get<std::string>());
-    if (j.contains("dir")) c.dir = parseDir(j.at("dir").get<std::string>());
-    return c;
-}
+RequestHandler::RequestHandler(GameEngine& engine) : eng_(engine) {}
 
 json RequestHandler::handle(const json& req) {
-    const auto action = req.value("action", "");
+    std::string action = req.value("action", "");
 
+    // ----------------- LOAD LEVEL -----------------
     if (action == "load_level") {
-        const auto path = req.at("path").get<std::string>();
-        Level lvl = loadLevelFromFile(path);
-        eng_.loadLevel(std::move(lvl));
-        return json{{"status","ok"},{"state", eng_.getStateJson()}};
+        try {
+            std::string path = req.at("path").get<std::string>();
+            std::cerr << "[RequestHandler] load_level path=" << path << std::endl;
+
+            auto opt = LevelLoader::loadFromJson(path);
+            if (!opt)
+                return json{{"status","error"},{"message","cannot load level"}};
+
+            eng_.loadLevel(std::move(*opt));
+        }
+        catch (std::exception& e) {
+            return json{{"status","error"},{"message", e.what()}};
+        }
+
+        auto st = eng_.getStateJson();
+        return json{{"status","ok"},{"state", st["state"]}};
     }
 
+    // ----------------- STATUS -----------------
     if (action == "status") {
-        return json{{"status","ok"},{"state", eng_.getStateJson()}};
+        auto st = eng_.getStateJson();
+        return json{{"status","ok"},{"state", st["state"]}};
     }
 
+    // ----------------- ADD ROBOT -----------------
+    if (action == "add_robot") {
+        try {
+            std::string type = req.value("robot_type", "worker");
+            int x = req.value("x", 0);
+            int y = req.value("y", 0);
+
+            std::unique_ptr<Robot> r;
+
+            if (type == "worker")
+                r = std::make_unique<WorkerRobot>();
+            else
+                r = std::make_unique<ControllerRobot>();
+
+            r->setPosition(x, y);
+            eng_.addRobot(std::move(r));
+
+            auto st = eng_.getStateJson();
+            return json{{"status","ok"},{"state", st["state"]}};
+        }
+        catch (...) {
+            return json{{"status","error"},{"message","cannot add robot"}};
+        }
+    }
+
+    // ----------------- STEP -----------------
     if (action == "step") {
+
         std::vector<Command> cmds;
         if (req.contains("commands")) {
-            for (const auto& jc : req.at("commands")) {
-                cmds.push_back(parseCommand(jc));
+            for (auto &c : req["commands"]) {
+                Command cmd;
+                cmd.robotId = c.value("robot_id", -1);
+
+                std::string t = c.value("cmd","");
+                if (t == "move") cmd.type = CommandType::Move;
+                else if (t == "pick") cmd.type = CommandType::Pick;
+                else if (t == "drop") cmd.type = CommandType::Drop;
+                else if (t == "give") cmd.type = CommandType::Give;
+                else cmd.type = CommandType::Broadcast;
+
+                std::string dir = c.value("dir","");
+                if (dir == "up") cmd.dir = Direction::Up;
+                else if (dir == "down") cmd.dir = Direction::Down;
+                else if (dir == "left") cmd.dir = Direction::Left;
+                else cmd.dir = Direction::Right;
+
+                cmds.push_back(cmd);
             }
         }
+
         eng_.applyCommands(cmds);
-        return json{{"status","ok"},{"state", eng_.getStateJson()}};
+        auto st = eng_.getStateJson();
+        return json{{"status","ok"},{"state", st["state"]}};
     }
 
     return json{{"status","error"},{"message","unknown action"}};

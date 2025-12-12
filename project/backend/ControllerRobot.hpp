@@ -3,7 +3,7 @@
 
 class ControllerRobot : public Robot {
 public:
-    using Robot::Robot;
-
+    ControllerRobot() = default;
+    RobotType getType() const override { return RobotType::Controller; }
     void execute(const Command& cmd, WorldView& world) override;
 };

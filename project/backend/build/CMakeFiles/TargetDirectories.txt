@@ -1,0 +1,3 @@
+C:/Users/Кирило/Documents/GitHub/OOP_LB2/project/backend/build/CMakeFiles/oop_backend.dir
+C:/Users/Кирило/Documents/GitHub/OOP_LB2/project/backend/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/Кирило/Documents/GitHub/OOP_LB2/project/backend/build/CMakeFiles/ZERO_CHECK.dir

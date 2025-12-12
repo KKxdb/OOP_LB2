@@ -1,26 +1,35 @@
 import tkinter as tk
-from tkinter import ttk
-import json
 
 CELL_SIZE = 40
-GRID_W = 10
-GRID_H = 10
-
 
 class GameWindow(tk.Frame):
-    def __init__(self, parent, level_data):
+    def __init__(self, parent, init_state):
         super().__init__(parent)
 
-        self.level_data = level_data
-        self.canvas = tk.Canvas(self, width=GRID_W * CELL_SIZE, height=GRID_H * CELL_SIZE, bg="white")
+        # Вхідні дані можуть бути або словником виду {"status":..., "state": {...}}
+        # або безпосередньо самим об'єктом state. Робимо гнучку обробку.
+        if isinstance(init_state, dict) and "state" in init_state:
+            state = init_state["state"]
+        else:
+            state = init_state
+
+        self.width = state["width"]
+        self.height = state["height"]
+
+        self.canvas = tk.Canvas(
+            self,
+            width=self.width * CELL_SIZE,
+            height=self.height * CELL_SIZE,
+            bg="white"
+        )
         self.canvas.pack()
 
         self.draw_grid()
-        self.draw_objects(level_data)
+        self.draw_objects(state)
 
     def draw_grid(self):
-        for x in range(GRID_W):
-            for y in range(GRID_H):
+        for x in range(self.width):
+            for y in range(self.height):
                 self.canvas.create_rectangle(
                     x * CELL_SIZE,
                     y * CELL_SIZE,
@@ -29,44 +38,34 @@ class GameWindow(tk.Frame):
                     outline="gray"
                 )
 
-    def draw_objects(self, data):
+    def draw_objects(self, state):
         self.canvas.delete("obj")
 
-        # Walls
-        for w in data.get("walls", []):
-            x, y = w["x"], w["y"]
-            self.canvas.create_rectangle(
-                x * CELL_SIZE, y * CELL_SIZE,
-                (x + 1) * CELL_SIZE, (y + 1) * CELL_SIZE,
-                fill="black", tags="obj"
-            )
+        for w in state["walls"]:
+            self._rect(w["x"], w["y"], "black")
 
-        # Boxes
-        for b in data.get("boxes", []):
-            x, y = b["x"], b["y"]
-            self.canvas.create_rectangle(
-                x * CELL_SIZE + 5, y * CELL_SIZE + 5,
-                (x + 1) * CELL_SIZE - 5, (y + 1) * CELL_SIZE - 5,
-                fill="brown", tags="obj"
-            )
+        for t in state["targets"]:
+            self._rect(t["x"], t["y"], "green")
 
-        # Targets
-        for t in data.get("targets", []):
-            x, y = t["x"], t["y"]
-            self.canvas.create_oval(
-                x * CELL_SIZE + 10, y * CELL_SIZE + 10,
-                (x + 1) * CELL_SIZE - 10, (y + 1) * CELL_SIZE - 10,
-                outline="green", width=3, tags="obj"
-            )
+        for b in state["boxes"]:
+            self._rect(b["x"], b["y"], "brown")
 
-        # Robots
-        for r in data.get("robots", []):
-            x, y = r["x"], r["y"]
-            self.canvas.create_oval(
-                x * CELL_SIZE + 5, y * CELL_SIZE + 5,
-                (x + 1) * CELL_SIZE - 5, (y + 1) * CELL_SIZE - 5,
-                fill="blue", tags="obj"
-            )
+        for r in state["robots"]:
+            self._rect(r["x"], r["y"], "blue")
 
-    def update_state(self, data):
-        self.draw_objects(data)
+    def _rect(self, x, y, color):
+        self.canvas.create_rectangle(
+            x * CELL_SIZE + 4, y * CELL_SIZE + 4,
+            (x + 1) * CELL_SIZE - 4, (y + 1) * CELL_SIZE - 4,
+            fill=color,
+            tags="obj"
+        )
+
+    def update_state(self, new_state):
+        # Також приймаємо або повний об'єкт відповіді, або безпосередньо state
+        if isinstance(new_state, dict) and "state" in new_state:
+            state = new_state["state"]
+        else:
+            state = new_state
+
+        self.draw_objects(state)

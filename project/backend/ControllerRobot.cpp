@@ -1,4 +1,5 @@
 #include "ControllerRobot.hpp"
+#include <algorithm>
 
 static std::pair<int,int> delta(Direction d) {
     switch (d) {
@@ -15,7 +16,7 @@ static bool inBounds(int x, int y, int w, int h) {
 }
 
 void ControllerRobot::execute(const Command& cmd, WorldView& w) {
-    if (!state->alive) return;
+    if (!state || !state->alive) return;
     if (cmd.type != CommandType::Broadcast) return;
 
     auto [dx, dy] = delta(cmd.dir);
@@ -23,11 +24,12 @@ void ControllerRobot::execute(const Command& cmd, WorldView& w) {
     int fy = state->y + dy;
     if (!inBounds(fx, fy, w.width, w.height)) return;
 
+    // просто сигналізуємо сусідньому роботу (фактично тут можна додати
+    // якусь поведінку; зараз нічого не змінюємо — контролер просто "бродкаст")
     for (auto& r : *w.robots) {
         if (!r.alive || r.type != RobotType::Worker) continue;
         if (r.x == fx && r.y == fy) {
-            // Тут можна реалізувати логіку трансляції команди
-            // Наприклад: позначити робота для наступної дії
+            // наприклад, позначити: r.carrying = true;  але це логіка гри — залишаю пустим
         }
     }
 }

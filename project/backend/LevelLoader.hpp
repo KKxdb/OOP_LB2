@@ -1,6 +1,10 @@
 #pragma once
-#include "Level.hpp"
 #include <string>
+#include <optional>
+#include "Level.hpp"
 
-// Новий завантажувач рівнів у форматі worldview
-Level loadLevelFromFile(const std::string& path);
+class LevelLoader {
+public:
+    // Load level from JSON file
+    static std::optional<Level> loadFromJson(const std::string& path);
+};

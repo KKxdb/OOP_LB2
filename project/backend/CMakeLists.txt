@@ -10,10 +10,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(BACKEND_SOURCES
     main.cpp
     GameEngine.cpp
-    Robots.cpp
-    Level.cpp # if you had a previous Level file, you can replace with Types.hpp usage
+    ControllerRobot.cpp
+    Level.cpp
     LevelLoader.cpp
     RequestHandler.cpp
+    WorkerRobot.cpp
+    JsonBuilder.cpp
 )
 add_executable(oop_backend ${BACKEND_SOURCES})
 

@@ -22,7 +22,7 @@ static Box* findBoxById(std::vector<Box>& boxes, int id) {
 }
 
 void WorkerRobot::execute(const Command& cmd, WorldView& w) {
-    if (!state->alive) return;
+    if (!state || !state->alive) return;
 
     if (cmd.type == CommandType::Move) {
         auto [dx, dy] = delta(cmd.dir);
@@ -43,8 +43,7 @@ void WorkerRobot::execute(const Command& cmd, WorldView& w) {
 
         if (cellType == CellType::Target && state->carrying && state->boxId) {
             if (auto* b = findBoxById(*w.boxes, *state->boxId)) {
-                b->x = nx; b->y = ny;
-                b->delivered = true;
+                b->x = nx; b->y = ny; b->delivered = true;
                 state->carrying = false;
                 state->boxId.reset();
             }
@@ -52,12 +51,10 @@ void WorkerRobot::execute(const Command& cmd, WorldView& w) {
 
         if (state->carrying && state->boxId) {
             if (auto* b = findBoxById(*w.boxes, *state->boxId)) {
-                b->x = state->x;
-                b->y = state->y;
+                b->x = state->x; b->y = state->y;
             }
         }
     }
-
     else if (cmd.type == CommandType::Pick) {
         if (state->carrying) return;
         for (auto& b : *w.boxes) {
@@ -68,17 +65,14 @@ void WorkerRobot::execute(const Command& cmd, WorldView& w) {
             }
         }
     }
-
     else if (cmd.type == CommandType::Drop) {
         if (!state->carrying || !state->boxId) return;
         if (auto* b = findBoxById(*w.boxes, *state->boxId)) {
-            b->x = state->x;
-            b->y = state->y;
+            b->x = state->x; b->y = state->y;
         }
         state->carrying = false;
         state->boxId.reset();
     }
-
     else if (cmd.type == CommandType::Give) {
         if (!state->carrying || !state->boxId) return;
         for (auto& r : *w.robots) {

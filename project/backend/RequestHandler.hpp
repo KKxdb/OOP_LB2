@@ -2,17 +2,17 @@
 #include "GameEngine.hpp"
 #include "Types.hpp"
 #include <nlohmann/json.hpp>
-#include <string>
+
+using json = nlohmann::json;
 
 class RequestHandler {
 public:
-    explicit RequestHandler(GameEngine& engine) : eng_(engine) {}
+    explicit RequestHandler(GameEngine& engine);
 
-    // головний метод: приймає JSON-запит, повертає JSON-відповідь
-    nlohmann::json handle(const nlohmann::json& req);
+    json handle(const json& req);
 
 private:
     GameEngine& eng_;
 
-    Command parseCommand(const nlohmann::json& j);
+    Command parseCommand(const json& j);
 };

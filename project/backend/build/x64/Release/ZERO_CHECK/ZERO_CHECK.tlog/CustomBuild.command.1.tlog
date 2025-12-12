@@ -1,0 +1,10 @@
+^C:\USERS\КИРИЛО\DOCUMENTS\GITHUB\OOP_LB2\PROJECT\BACKEND\BUILD\CMAKEFILES\B5EA3071FBCEB482998A2883C30E359F\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake2\bin\cmake.exe" -SC:/Users/Кирило/Documents/GitHub/OOP_LB2/project/backend -BC:/Users/Кирило/Documents/GitHub/OOP_LB2/project/backend/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/Кирило/Documents/GitHub/OOP_LB2/project/backend/build/backend.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

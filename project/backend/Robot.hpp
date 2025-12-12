@@ -1,41 +1,31 @@
 #pragma once
 #include "Types.hpp"
+#include <optional>
 
-// Базовий клас для всіх роботів
+// Базовий клас роботів.
+// Робот зберігає тимчасові x/y (pending) до attachState() — так ми можемо setPosition() ще до того,
+// як Level збереже RobotState.
 class Robot {
 protected:
-    RobotState* state;
-
+    RobotState* state = nullptr;
+    int pending_x = 0;
+    int pending_y = 0;
 public:
-    explicit Robot(RobotState* s) : state(s) {}
+    Robot() = default;
     virtual ~Robot() = default;
 
+    // attach state pointer (Level викликає після створення RobotState)
+    void attachState(RobotState* s) { state = s; }
     RobotState* getState() { return state; }
 
+    // виклики до позиції можна робити заздалегідь
+    void setPosition(int x, int y) { pending_x = x; pending_y = y; }
+    int getPendingX() const { return pending_x; }
+    int getPendingY() const { return pending_y; }
+
+    // тип робота (перевизначаються в похідних)
+    virtual RobotType getType() const = 0;
+
+    // виконати команду (переоприділяється)
     virtual void execute(const Command& cmd, WorldView& world) = 0;
-
-    // Для рендеру
-    int getX() const { return state->x; }
-    int getY() const { return state->y; }
-    char getSymbol() const {
-        if (!state->alive) return 'X';
-        if (state->type == RobotType::Worker)
-            return state->carrying ? 'B' : 'W';
-        else
-            return 'C';
-    }
-};
-
-// Робот-робітник
-class WorkerRobot : public Robot {
-public:
-    using Robot::Robot;
-    void execute(const Command& cmd, WorldView& world) override;
-};
-
-// Робот-контролер
-class ControllerRobot : public Robot {
-public:
-    using Robot::Robot;
-    void execute(const Command& cmd, WorldView& world) override;
 };

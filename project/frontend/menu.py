@@ -7,8 +7,9 @@ import subprocess
 import threading
 from game_window import GameWindow
 import sys
+import queue
 
-BACKEND_EXEC = os.path.join(os.path.dirname(__file__), "..", "build", "oop_backend.exe")
+BACKEND_EXEC = r"C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\build\Release\oop_backend.exe"
 LEVELS_DIR = os.path.join(os.path.dirname(__file__), "levels")
 
 
@@ -201,7 +202,12 @@ class LevelsWindow(tk.Toplevel):
         backend.level_path = level_path 
         backend.start()
 
-        GameRunner(self, backend, level_path)
+        resp = backend.send({"action": "load_level", "path": level_path})
+
+        print("INIT RESP:", resp)
+
+        # Передаємо відповідь в GameRunner, щоб уникнути подвійного запиту
+        GameRunner(self, backend, level_path, resp)
 
 
 # ======================================================================
@@ -223,95 +229,66 @@ class Viewer(tk.Toplevel):
 # ======================================================================
 #                     BACKEND PROCESS CONTROLLER
 # ======================================================================
+
 class BackendProcess:
     def __init__(self, exe_path=BACKEND_EXEC):
         self.exe_path = exe_path
         self.proc = None
-        self.lock = threading.Lock()
-        self.level_path = None
 
     def start(self):
-        if self.proc is not None:
-            return
+        print(">>> TRYING TO RUN BACKEND:", self.exe_path)
+        self.proc = subprocess.Popen(
+            [self.exe_path],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+            bufsize=1
+        )
 
-        # Абсолютний шлях до game_window.py
-        game_script = os.path.join(os.path.dirname(__file__), "game_window.py")
-        game_script = os.path.abspath(game_script)
-
-        if not self.level_path:
-            raise RuntimeError("level_path не встановлено перед start()")
-
-        try:
-            self.proc = subprocess.Popen(
-                [sys.executable, game_script, self.level_path],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1
-            )
-        except Exception as e:
-            raise RuntimeError(f"Не вдалося запустити backend: {e}")
+    def send(self, obj):
+        line = json.dumps(obj)
+        self.proc.stdin.write(line + "\n")
+        self.proc.stdin.flush()
+        resp = self.proc.stdout.readline()
+        return json.loads(resp)
 
     def stop(self):
         if self.proc:
-            try:
-                self.proc.terminate()
-            except:
-                pass
+            self.proc.terminate()
 
-    def send_command(self, cmd: dict):
-        if not self.proc:
-            raise RuntimeError("Бекенд не запущено")
-
-        with self.lock:
-            self.proc.stdin.write(json.dumps(cmd) + "\n")
-            self.proc.stdin.flush()
-
-            line = self.proc.stdout.readline()
-            return json.loads(line)
 
 
 # ======================================================================
 #                          SIMPLE GAME RUNNER
 # ======================================================================
 class GameRunner(tk.Toplevel):
-    def __init__(self, parent, backend: BackendProcess, level_path: str):
+    def __init__(self, parent, backend: BackendProcess, level_path: str, init_resp=None):
         super().__init__(parent)
         self.backend = backend
-        self.level_path = level_path
+        #self.backend.start()
 
-        self.title("Гра")
-        self.geometry("640x480")
+        # load level
+        if init_resp is None:
+            resp = backend.send({"action": "load_level", "path": level_path})
+        else:
+            resp = init_resp
 
-        top = ttk.Frame(self, padding=8)
+        self.game = GameWindow(self, resp)
+        self.game.pack(fill="both", expand=True)
+
+        top = ttk.Frame(self)
         top.pack(fill="x")
-
         ttk.Button(top, text="Step", command=self.on_step).pack(side="left")
         ttk.Button(top, text="Stop", command=self.on_stop).pack(side="right")
-        
-
-        self.game = GameWindow(self, resp)
-        self.game.pack(fill="both", expand=True)
-
-
-        # Load level
-        resp = backend.send_command({"action": "load_level", "path": level_path})
-        print("LOAD RESP:", resp)
-        self.game = GameWindow(self, resp)
-        self.game.pack(fill="both", expand=True)
-
-    def _print(self, data):
-        self.txt.insert("end", json.dumps(data, ensure_ascii=False, indent=2) + "\n")
-        self.txt.see("end")
 
     def on_step(self):
-        resp = self.backend.send_command({"action": "step"})
+        resp = self.backend.send({"action": "step"})
         self.game.update_state(resp)
 
     def on_stop(self):
         self.backend.stop()
         self.destroy()
+
 
 
 # ======================================================================

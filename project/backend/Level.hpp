@@ -2,56 +2,58 @@
 #include <memory>
 #include <vector>
 #include <utility>
+#include <algorithm>
 #include "Robot.hpp"
 #include "Types.hpp"
 
-// Рівень: фіксована сітка, стіни, цілі, коробки, роботи
+// Level: зберігає робітників, стани, коробки, цілі, стіни
 class Level {
 public:
-    Level(int w, int h);
+    Level(int w = 10, int h = 10);
 
-    void addRobot(std::unique_ptr<Robot> r);
+    void addRobot(std::unique_ptr<Robot> r); // attach state та додати робота
     void addWall(int x, int y);
     void addTarget(int x, int y);
     void addBox(int x, int y);
 
     void update();
 
-    // фонова сітка (символи)
+    // доступи
     std::vector<std::vector<char>> getGrid() const;
-
-    // логічна сітка (Cell)
     std::vector<std::vector<Cell>>& getGridCells();
     const std::vector<std::vector<Cell>>& getGridCells() const;
 
-    // доступ до роботів
     const std::vector<std::unique_ptr<Robot>>& getRobots() const;
     std::vector<std::unique_ptr<Robot>>& getRobots();
 
-    // доступ до станів і коробок
     std::vector<RobotState>& getRobotStates();
     std::vector<Box>& getBoxes();
     const std::vector<Box>& getBoxes() const;
 
+    const std::vector<std::pair<int,int>>& getTargets() const { return targets; }
+    const std::vector<std::pair<int,int>>& getWalls() const { return walls; }
 
-    // перевірки
     bool isInside(int x, int y) const;
     bool isWall(int x, int y) const;
     bool isTarget(int x, int y) const;
     bool isBox(int x, int y) const;
 
-    // розміри
     int getWidth() const { return width; }
     int getHeight() const { return height; }
 
     bool isCompleted() const;
 
+    int getMoves() const { return moves; }       
+    void incrementMoves() { moves++; }
+
 private:
     int width;
     int height;
 
-    std::vector<std::vector<char>> grid;       // для рендера
-    std::vector<std::vector<Cell>> gridCells;  // для логіки
+    int moves = 0;
+
+    std::vector<std::vector<char>> grid;
+    std::vector<std::vector<Cell>> gridCells;
 
     std::vector<std::pair<int,int>> walls;
     std::vector<std::pair<int,int>> targets;

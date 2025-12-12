@@ -1,5 +1,4 @@
 #include "Level.hpp"
-#include <algorithm>
 
 Level::Level(int w, int h)
     : width(w), height(h),
@@ -7,7 +6,23 @@ Level::Level(int w, int h)
       gridCells(h, std::vector<Cell>(w)) {}
 
 void Level::addRobot(std::unique_ptr<Robot> r) {
+    // створюємо state для робота (id = size+1)
+    RobotState st;
+    st.id = static_cast<int>(robotStates.size()) + 1;
+    st.type = r->getType();
+    st.x = r->getPendingX();
+    st.y = r->getPendingY();
+    st.alive = true;
+    st.carrying = false;
+    st.boxId = std::nullopt;
+
+    robotStates.push_back(st);
+    // attach pointer до щойно доданого елемента
+    r->attachState(&robotStates.back());
+
     robots.push_back(std::move(r));
+    rebuildBackground();
+    rebuildCells();
 }
 
 void Level::addWall(int x, int y) {
@@ -27,7 +42,7 @@ void Level::addTarget(int x, int y) {
 void Level::addBox(int x, int y) {
     if (!isInside(x,y)) return;
     boxes.emplace_back(x,y);
-    Box b{(int)boxStates.size()+1, x, y, false};
+    Box b{static_cast<int>(boxStates.size())+1, x, y, false};
     boxStates.push_back(b);
     rebuildBackground();
     rebuildCells();
@@ -66,16 +81,16 @@ void Level::rebuildCells() {
 
     for (auto& w : walls) gridCells[w.second][w.first].type = CellType::Wall;
     for (auto& t : targets) gridCells[t.second][t.first].type = CellType::Target;
-    // коробки можна теж позначати, якщо треба
 }
 
 void Level::update() {
+    moves++;
     rebuildBackground();
     rebuildCells();
 
     for (auto& r : robots) {
         auto* st = r->getState();
-        if (!st->alive) continue;
+        if (!st || !st->alive) continue;
         int x = st->x, y = st->y;
         if (!isInside(x,y)) continue;
 
@@ -98,36 +113,14 @@ void Level::update() {
     }
 }
 
-std::vector<std::vector<char>> Level::getGrid() const {
-    return grid;
-}
-
-std::vector<std::vector<Cell>>& Level::getGridCells() {
-    return gridCells;
-}
-const std::vector<std::vector<Cell>>& Level::getGridCells() const {
-    return gridCells;
-}
-
-const std::vector<std::unique_ptr<Robot>>& Level::getRobots() const {
-    return robots;
-}
-std::vector<std::unique_ptr<Robot>>& Level::getRobots() {
-    return robots;
-}
-
-std::vector<RobotState>& Level::getRobotStates() {
-    return robotStates;
-}
-
-std::vector<Box>& Level::getBoxes() {
-    return boxStates;
-}
-
-const std::vector<Box>& Level::getBoxes() const {
-    return boxStates;
-}
-
+std::vector<std::vector<char>> Level::getGrid() const { return grid; }
+std::vector<std::vector<Cell>>& Level::getGridCells() { return gridCells; }
+const std::vector<std::vector<Cell>>& Level::getGridCells() const { return gridCells; }
+const std::vector<std::unique_ptr<Robot>>& Level::getRobots() const { return robots; }
+std::vector<std::unique_ptr<Robot>>& Level::getRobots() { return robots; }
+std::vector<RobotState>& Level::getRobotStates() { return robotStates; }
+std::vector<Box>& Level::getBoxes() { return boxStates; }
+const std::vector<Box>& Level::getBoxes() const { return boxStates; }
 
 bool Level::isCompleted() const {
     return std::all_of(boxStates.begin(), boxStates.end(),

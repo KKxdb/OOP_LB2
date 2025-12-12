@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\GameEngine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\ControllerRobot.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\Level.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\LevelLoader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\RequestHandler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\WorkerRobot.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\JsonBuilder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{C6022ED9-B8FD-39AC-BA4A-66191DE35427}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
