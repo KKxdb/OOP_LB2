@@ -1,20 +1,53 @@
 #include "GameEngine.hpp"
-#include <nlohmann/json.hpp>
-#include "Level.hpp"
-
-
+#include "WorkerRobot.hpp"
+#include "ControllerRobot.hpp"
 using json = nlohmann::json;
 
-GameEngine::GameEngine() : level(10,10) {}
+GameEngine::GameEngine() : level(10, 10) {}
 
 void GameEngine::loadLevel(Level&& lvl) {
     level = std::move(lvl);
+    level.getPlacedRobots().clear();
+}
+
+static std::string dirToStr(Direction d) {
+    switch (d) {
+        case Direction::Up: return "up";
+        case Direction::Down: return "down";
+        case Direction::Left: return "left";
+        case Direction::Right: return "right";
+    }
+    return "up";
+}
+
+// створюємо робота у списку UI
+void GameEngine::spawnPlacedRobot(int x, int y, const std::string& type) {
+    std::unique_ptr<Robot> r;
+
+    if (type == "worker") r = std::make_unique<WorkerRobot>();
+    else                  r = std::make_unique<ControllerRobot>();
+
+    r->setPosition(x, y);
+    level.getPlacedRobots().push_back(std::move(r));
+}
+
+// переносимо роботів у Level
+void GameEngine::commitPlacedRobots() {
+    for (auto& r : level.getPlacedRobots())
+        level.addRobot(std::move(r));
+
+    level.getPlacedRobots().clear();
+}
+
+// очищаємо при виході
+void GameEngine::clearPlacedRobots() {
+    level.getPlacedRobots().clear();
 }
 
 Robot* GameEngine::findRobotById(int id) {
     for (auto& r : level.getRobots()) {
-        auto* st = r->getState();
-        if (st && st->id == id) return r.get();
+        if (r->getState() && r->getState()->id == id)
+            return r.get();
     }
     return nullptr;
 }
@@ -43,40 +76,66 @@ json GameEngine::getStateJson() const {
     st["width"]  = level.getWidth();
     st["height"] = level.getHeight();
 
-    // walls
     st["walls"] = json::array();
-    for (auto& w : level.getWalls()) {
+    for (auto& w : level.getWalls())
         st["walls"].push_back({ {"x", w.first}, {"y", w.second} });
-    }
 
-    // targets
     st["targets"] = json::array();
-    for (auto& t : level.getTargets()) {
+    for (auto& t : level.getTargets())
         st["targets"].push_back({ {"x", t.first}, {"y", t.second} });
-    }
 
-    // boxes
     st["boxes"] = json::array();
-    for (auto& b : level.getBoxes()) {
+    for (auto& b : level.getBoxes())
         st["boxes"].push_back({ {"x", b.x}, {"y", b.y} });
-    }
 
-    // robots
     st["robots"] = json::array();
+
+    // роботи з level (основні)
     for (auto& r : level.getRobots()) {
-        auto* rs = r->getState();
-        if (!rs) continue;
+        auto* s = r->getState();
+        if (!s) continue;
 
         st["robots"].push_back({
-            {"x", rs->x},
-            {"y", rs->y},
-            {"id", rs->id},
-            {"type", rs->type == RobotType::Worker ? "worker" : "controller"}
+            {"id", s->id},
+            {"x",  s->x},
+            {"y",  s->y},
+            {"type", s->type == RobotType::Worker ? "worker" : "controller"},
+            {"dir", dirToStr(s->dir)}
         });
     }
 
-    // упаковка
+    // роботи, що поставив гравець у цьому рівні
+    for (auto& r : level.getPlacedRobots()) {
+        auto* s = r->getState();
+        if (!s) continue;
+
+        st["robots"].push_back({
+            {"id", s->id},
+            {"x",  s->x},
+            {"y",  s->y},
+            {"type", s->type == RobotType::Worker ? "worker" : "controller"},
+            {"dir", dirToStr(s->dir)}
+        });
+    }
+
+
     json out;
     out["state"] = st;
     return out;
 }
+
+void GameEngine::update() {
+    level.update();
+}
+
+// додати робота одразу в рівень (Level::addRobot)
+void GameEngine::addRobot(std::unique_ptr<Robot> r) {
+    level.addRobot(std::move(r));
+}
+
+// додати робота в список "placed" у движку (якщо у тебе є placedRobots у GameEngine)
+void GameEngine::addPlacedRobot(std::unique_ptr<Robot> r) {
+    level.addPlacedRobot(std::move(r));
+}
+
+

@@ -2,23 +2,23 @@
 import os
 import json
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog, filedialog
+from tkinter import ttk, messagebox, filedialog
 import subprocess
-import threading
 from game_window import GameWindow
-import sys
-import queue
 
+# ---------------------------------------------
+# Константи
+# ---------------------------------------------
 BACKEND_EXEC = r"C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\build\Release\oop_backend.exe"
 LEVELS_DIR = os.path.join(os.path.dirname(__file__), "levels")
 
 
 # ======================================================================
-#                          MAIN MENU
+#                          MAIN MENU (Toplevel)
 # ======================================================================
-class MenuApp(tk.Tk):
-    def __init__(self):
-        super().__init__()
+class MenuApp(tk.Toplevel):
+    def __init__(self, master):
+        super().__init__(master)
         self.title("OOP Lab — Меню")
         self.geometry("360x220")
         self._ensure_levels_dir()
@@ -41,18 +41,17 @@ class MenuApp(tk.Tk):
         btn_create = ttk.Button(frame, text="Створити", command=self.create_level_dialog)
         btn_create.pack(fill="x", pady=6)
 
-        btn_exit = ttk.Button(frame, text="Вихід", command=self.quit)
+        btn_exit = ttk.Button(frame, text="Вихід", command=self.master.quit)
         btn_exit.pack(fill="x", pady=6)
 
-        hint = ttk.Label(frame, text="Рівні зберігаються в frontend/levels", font=("Segoe UI", 8))
-        hint.pack(side="bottom", pady=(12, 0))
-
     def open_levels(self):
-        LevelsWindow(self)
+        LevelsWindow(self.master)   # відкриваємо нове
+        self.destroy()              # закриваємо меню, але root живий!
 
     def create_level_dialog(self):
         dlg = CreateLevelDialog(self)
-        self.wait_window(dlg)
+        CreateLevelDialog(self.master)
+
         if getattr(dlg, "result", None):
             name, width, height = dlg.result
             try:
@@ -61,13 +60,14 @@ class MenuApp(tk.Tk):
             except Exception as e:
                 messagebox.showerror("Помилка", str(e))
 
+        self.destroy()
+
     def _create_level_file(self, name: str, width: int, height: int):
         safe_name = "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).strip()
         if not safe_name:
             raise ValueError("Невірна назва рівня")
 
-        filename = f"{safe_name}.json"
-        path = os.path.join(LEVELS_DIR, filename)
+        path = os.path.join(LEVELS_DIR, safe_name + ".json")
 
         if os.path.exists(path):
             raise FileExistsError("Файл з такою назвою вже існує")
@@ -86,7 +86,7 @@ class MenuApp(tk.Tk):
 
 
 # ======================================================================
-#                           CREATE LEVEL DIALOG
+#                     CREATE LEVEL DIALOG (Toplevel)
 # ======================================================================
 class CreateLevelDialog(tk.Toplevel):
     def __init__(self, parent):
@@ -117,7 +117,7 @@ class CreateLevelDialog(tk.Toplevel):
         btns.grid(row=3, column=0, columnspan=2, pady=(10, 0))
 
         ttk.Button(btns, text="Створити", command=self._on_create).pack(side="left", padx=6)
-        ttk.Button(btns, text="Скасувати", command=self.destroy).pack(side="left", padx=6)
+        ttk.Button(btns, text="Повернутись", command=self.go_back).pack(side="left", padx=6)
 
     def _on_create(self):
         name = self.name_var.get().strip()
@@ -135,13 +135,17 @@ class CreateLevelDialog(tk.Toplevel):
         self.result = (name, width, height)
         self.destroy()
 
+    def go_back(self):
+        MenuApp(self.master)
+        self.destroy()
+
 
 # ======================================================================
-#                           LEVELS LIST WINDOW
+#                            LEVELS WINDOW
 # ======================================================================
 class LevelsWindow(tk.Toplevel):
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, master):
+        super().__init__(master)
         self.title("Список рівнів")
         self.geometry("420x320")
         self._build_ui()
@@ -159,7 +163,11 @@ class LevelsWindow(tk.Toplevel):
 
         ttk.Button(btn_frame, text="Оновити", command=self._load_levels).pack(side="left")
         ttk.Button(btn_frame, text="Імпортувати", command=self._import_level).pack(side="left", padx=6)
-        ttk.Button(btn_frame, text="Закрити", command=self.destroy).pack(side="right")
+        ttk.Button(btn_frame, text="Назад", command=self.go_back).pack(side="right")
+
+    def go_back(self):
+        MenuApp(self.master)
+        self.destroy()
 
     def _load_levels(self):
         for child in self.list_frame.winfo_children():
@@ -167,7 +175,7 @@ class LevelsWindow(tk.Toplevel):
 
         files = sorted(f for f in os.listdir(LEVELS_DIR) if f.endswith(".json"))
         if not files:
-            ttk.Label(self.list_frame, text="Рівні не знайдено").pack(pady=12)
+            ttk.Label(self.list_frame, text="Рівнів не знайдено").pack(pady=10)
             return
 
         for fname in files:
@@ -175,7 +183,6 @@ class LevelsWindow(tk.Toplevel):
             row.pack(fill="x", pady=3)
 
             ttk.Label(row, text=fname).pack(side="left")
-
             ttk.Button(row, text="Play", command=lambda f=fname: self._play_level(f)).pack(side="right")
             ttk.Button(row, text="Відкрити", command=lambda f=fname: self._open_level(f)).pack(side="right", padx=6)
 
@@ -196,18 +203,14 @@ class LevelsWindow(tk.Toplevel):
         self._load_levels()
 
     def _play_level(self, filename):
-        level_path = os.path.join(LEVELS_DIR, filename)
-
+        path = os.path.join(LEVELS_DIR, filename)
         backend = BackendProcess()
-        backend.level_path = level_path 
         backend.start()
 
-        resp = backend.send({"action": "load_level", "path": level_path})
+        resp = backend.send({"action": "load_level", "path": path})
 
-        print("INIT RESP:", resp)
-
-        # Передаємо відповідь в GameRunner, щоб уникнути подвійного запиту
-        GameRunner(self, backend, level_path, resp)
+        GameRunner(self.master, backend, path, resp)
+        self.destroy()
 
 
 # ======================================================================
@@ -229,14 +232,12 @@ class Viewer(tk.Toplevel):
 # ======================================================================
 #                     BACKEND PROCESS CONTROLLER
 # ======================================================================
-
 class BackendProcess:
     def __init__(self, exe_path=BACKEND_EXEC):
         self.exe_path = exe_path
         self.proc = None
 
     def start(self):
-        print(">>> TRYING TO RUN BACKEND:", self.exe_path)
         self.proc = subprocess.Popen(
             [self.exe_path],
             stdin=subprocess.PIPE,
@@ -257,43 +258,37 @@ class BackendProcess:
             self.proc.terminate()
 
 
-
 # ======================================================================
-#                          SIMPLE GAME RUNNER
+#                               GAME RUNNER
 # ======================================================================
 class GameRunner(tk.Toplevel):
-    def __init__(self, parent, backend: BackendProcess, level_path: str, init_resp=None):
-        super().__init__(parent)
+    def __init__(self, master, backend: BackendProcess, level_path: str, initial_state):
+        super().__init__(master)
         self.backend = backend
-        #self.backend.start()
 
-        # load level
-        if init_resp is None:
-            resp = backend.send({"action": "load_level", "path": level_path})
-        else:
-            resp = init_resp
-
-        self.game = GameWindow(self, resp)
+        self.game = GameWindow(self, backend, initial_state)
         self.game.pack(fill="both", expand=True)
 
         top = ttk.Frame(self)
         top.pack(fill="x")
-        ttk.Button(top, text="Step", command=self.on_step).pack(side="left")
-        ttk.Button(top, text="Stop", command=self.on_stop).pack(side="right")
+        ttk.Button(top, text="Step", command=self.step).pack(side="left")
+        ttk.Button(top, text="Повернутися", command=self.return_to_menu).pack(side="right")
 
-    def on_step(self):
+
+    def step(self):
         resp = self.backend.send({"action": "step"})
         self.game.update_state(resp)
 
-    def on_stop(self):
-        self.backend.stop()
+    def return_to_menu(self):         
+        MenuApp(self.master)
         self.destroy()
 
 
-
 # ======================================================================
-#                                  RUN
+#                               MAIN ENTRY
 # ======================================================================
 if __name__ == "__main__":
-    app = MenuApp()
-    app.mainloop()
+    root = tk.Tk()
+    root.withdraw()  # ховаємо root
+    MenuApp(root)
+    root.mainloop()

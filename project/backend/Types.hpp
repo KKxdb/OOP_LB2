@@ -1,15 +1,12 @@
 #pragma once
 #include <vector>
 #include <optional>
+#include <memory>
 #include <string>
 
-// Базові типи клітинок
 enum class CellType { Empty, Wall, Target };
-
 enum class RobotType { Worker, Controller };
-
-enum class CommandType { Move, Pick, Drop, Give, Broadcast };
-
+enum class CommandType { Move, Pick, Drop, Give, Broadcast, RotateCW, RotateCCW, Boost };
 enum class Direction { Up, Down, Left, Right };
 
 struct Command {
@@ -37,13 +34,15 @@ struct RobotState {
     bool alive = true;
     bool carrying = false;
     std::optional<int> boxId;
+    Direction dir = Direction::Up;
 };
 
-// 🔧 Ось саме той WorldView, якого вам бракує
+// ✔ правильний WorldView
 struct WorldView {
     int width;
     int height;
+
     const std::vector<std::vector<Cell>>* grid;
-    std::vector<RobotState>* robots;
+    std::vector<std::unique_ptr<RobotState>>* robotStates;
     std::vector<Box>* boxes;
 };
