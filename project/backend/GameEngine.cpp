@@ -1,13 +1,14 @@
 #include "GameEngine.hpp"
 #include "WorkerRobot.hpp"
 #include "ControllerRobot.hpp"
+#include <queue>
+
 using json = nlohmann::json;
 
 GameEngine::GameEngine() : level(10, 10) {}
 
 void GameEngine::loadLevel(Level&& lvl) {
     level = std::move(lvl);
-    level.getPlacedRobots().clear();
 }
 
 static std::string dirToStr(Direction d) {
@@ -20,26 +21,23 @@ static std::string dirToStr(Direction d) {
     return "up";
 }
 
-// створюємо робота у списку UI
 void GameEngine::spawnPlacedRobot(int x, int y, const std::string& type) {
     std::unique_ptr<Robot> r;
 
-    if (type == "worker") r = std::make_unique<WorkerRobot>();
-    else                  r = std::make_unique<ControllerRobot>();
+    if (type == "worker")
+        r = std::make_unique<WorkerRobot>();
+    else
+        r = std::make_unique<ControllerRobot>();
 
     r->setPosition(x, y);
     level.getPlacedRobots().push_back(std::move(r));
 }
-
-// переносимо роботів у Level
 void GameEngine::commitPlacedRobots() {
     for (auto& r : level.getPlacedRobots())
         level.addRobot(std::move(r));
-
     level.getPlacedRobots().clear();
 }
 
-// очищаємо при виході
 void GameEngine::clearPlacedRobots() {
     level.getPlacedRobots().clear();
 }
@@ -88,54 +86,229 @@ json GameEngine::getStateJson() const {
     for (auto& b : level.getBoxes())
         st["boxes"].push_back({ {"x", b.x}, {"y", b.y} });
 
+    // Один загальний список роботів
     st["robots"] = json::array();
 
-    // роботи з level (основні)
-    for (auto& r : level.getRobots()) {
-        auto* s = r->getState();
-        if (!s) continue;
+    auto append = [&](const auto& arr){
+        for (auto& r : arr) {
+            auto* s = r->getState();
+            if (!s) continue;
 
-        st["robots"].push_back({
-            {"id", s->id},
-            {"x",  s->x},
-            {"y",  s->y},
-            {"type", s->type == RobotType::Worker ? "worker" : "controller"},
-            {"dir", dirToStr(s->dir)}
-        });
-    }
+            st["robots"].push_back({
+                {"id", s->id},
+                {"x",  s->x},
+                {"y",  s->y},
+                {"type", s->type == RobotType::Worker ? "worker" : "controller"},
+                {"dir", dirToStr(s->dir)}
+            });
+        }
+    };
 
-    // роботи, що поставив гравець у цьому рівні
-    for (auto& r : level.getPlacedRobots()) {
-        auto* s = r->getState();
-        if (!s) continue;
+    append(level.getRobots());
+    append(level.getPlacedRobots());
 
-        st["robots"].push_back({
-            {"id", s->id},
-            {"x",  s->x},
-            {"y",  s->y},
-            {"type", s->type == RobotType::Worker ? "worker" : "controller"},
-            {"dir", dirToStr(s->dir)}
-        });
-    }
-
-
-    json out;
-    out["state"] = st;
-    return out;
+    return json{ {"state", st} };
 }
+
 
 void GameEngine::update() {
     level.update();
 }
 
-// додати робота одразу в рівень (Level::addRobot)
 void GameEngine::addRobot(std::unique_ptr<Robot> r) {
     level.addRobot(std::move(r));
 }
 
-// додати робота в список "placed" у движку (якщо у тебе є placedRobots у GameEngine)
 void GameEngine::addPlacedRobot(std::unique_ptr<Robot> r) {
     level.addPlacedRobot(std::move(r));
 }
 
+void GameEngine::stepAuto() {
+    if (locked_) return;
 
+    // Спільний контейнер — всі реальні роботи
+    auto& robots = level.getRobots();
+    auto& placed = level.getPlacedRobots();
+
+    auto moveWorker = [&](Robot* base) {
+        WorkerRobot* w = dynamic_cast<WorkerRobot*>(base);
+        if (!w) return;
+
+        auto* s = w->getState();
+        if (!s) return;
+
+        int dx = 0, dy = 0;
+        switch (s->dir) {
+            case Direction::Up:    dy = -1; break;
+            case Direction::Down:  dy = 1; break;
+            case Direction::Left:  dx = -1; break;
+            case Direction::Right: dx = 1; break;
+        }
+
+        int nx = s->x + dx;
+        int ny = s->y + dy;
+
+        if (!level.isInside(nx, ny))
+            return;
+
+        // Перевірка зіткнень з реальними роботами
+        auto check = [&](auto& arr){
+            for (auto& other : arr) {
+                auto* so = other->getState();
+                if (!so) continue;
+                if (so != s && so->x == nx && so->y == ny)
+                    return true;
+            }
+            return false;
+        };
+
+        if (check(robots)) return;
+        if (check(placed)) return;
+
+        s->x = nx;
+        s->y = ny;
+    };
+
+    auto controllerAction = [&](Robot* base){
+        ControllerRobot* c = dynamic_cast<ControllerRobot*>(base);
+        if (!c) return;
+
+        if (!c->hasPendingCommand()) return;
+
+        auto* sc = c->getState();
+        if (!sc) return;
+
+        Command cmd = c->takePendingCommand();
+
+        int dx = 0, dy = 0;
+        switch (sc->dir) {
+            case Direction::Up:    dy = -1; break;
+            case Direction::Down:  dy = 1; break;
+            case Direction::Left:  dx = -1; break;
+            case Direction::Right: dx = 1; break;
+        }
+
+        int tx = sc->x + dx;
+        int ty = sc->y + dy;
+
+        auto applyTo = [&](auto& arr){
+            for (auto& other : arr) {
+                WorkerRobot* w = dynamic_cast<WorkerRobot*>(other.get());
+                if (!w) continue;
+
+                auto* sw = w->getState();
+                if (!sw) continue;
+
+                if (sw->x == tx && sw->y == ty) {
+                    WorldView view{
+                        level.getWidth(),
+                        level.getHeight(),
+                        &level.getGridCells(),
+                        &level.getRobotStates(),
+                        &level.getBoxes()
+                    };
+
+                    w->execute(cmd, view);
+                }
+            }
+        };
+
+        applyTo(robots);
+        applyTo(placed);
+    };
+
+    // 1) Рух робітників
+    for (auto& r : robots) moveWorker(r.get());
+    for (auto& r : placed) moveWorker(r.get());
+
+    // 2) Робота контролерів
+    for (auto& r : robots) controllerAction(r.get());
+    for (auto& r : placed) controllerAction(r.get());
+
+    level.update();
+}
+
+
+
+
+std::vector<Command> GameEngine::collectControllerCommands() {
+    std::vector<Command> cmds;
+
+    for (auto& r : level.getRobots()) {
+        auto* ctrl = dynamic_cast<ControllerRobot*>(r.get());
+        if (!ctrl) continue;
+
+        if (ctrl->hasPendingCommand()) {
+            cmds.push_back(ctrl->takePendingCommand());
+        }
+    }
+
+    return cmds;
+}
+
+bool GameEngine::isWin() const {
+    return level.isCompleted();
+}
+
+bool GameEngine::bfs_reachable(
+    const Level& lvl,
+    int sx, int sy,
+    const std::pair<int,int>& target)
+{
+    int W = lvl.getWidth();
+    int H = lvl.getHeight();
+
+    if (!lvl.isInside(sx, sy)) return false;
+
+    std::vector<std::vector<char>> used(H, std::vector<char>(W, 0));
+    std::queue<std::pair<int,int>> q;
+    q.push({sx, sy});
+    used[sy][sx] = 1;
+
+    const int dx[4] = {1,-1,0,0};
+    const int dy[4] = {0,0,1,-1};
+
+    while (!q.empty()) {
+        auto [x, y] = q.front(); q.pop();
+
+        if (x == target.first && y == target.second)
+            return true;
+
+        for (int k=0; k<4; ++k) {
+            int nx = x + dx[k];
+            int ny = y + dy[k];
+
+            if (!lvl.isInside(nx, ny)) continue;
+            if (used[ny][nx]) continue;
+            if (lvl.isWall(nx, ny)) continue;
+
+            used[ny][nx] = 1;
+            q.push({nx, ny});
+        }
+    }
+
+    return false;
+}
+
+bool GameEngine::isLose() const {
+    const auto& boxes = level.getBoxes();
+    const auto& targets = level.getTargets();
+
+    bool anyUndelivered = false;
+    for (const auto& b : boxes)
+        if (!b.delivered) anyUndelivered = true;
+
+    if (!anyUndelivered) return false; // можливо перемога
+
+    if (targets.empty()) return true; // немає куди доставити
+
+    for (const auto& b : boxes) {
+        if (b.delivered) continue;
+
+        for (const auto& t : targets)
+            if (bfs_reachable(level, b.x, b.y, t))
+                return false; // коробка може дістатися цілі
+    }
+
+    return true; // жодна коробка не може дістатись жодної цілі
+}

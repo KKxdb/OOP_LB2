@@ -7,19 +7,22 @@ class GameEngine {
 public:
     GameEngine();
 
+    bool isWin() const;
+    bool isLose() const;
+
+    bool locked_ = false;
+    bool isLocked() const { return locked_; }
+    void lock() { locked_ = true; }
+
+    void stepAuto();
     void loadLevel(Level&& lvl);
 
-    // роботи, які ставить гравець
     void spawnPlacedRobot(int x, int y, const std::string& type);
-
-    // переносимо усі placedRobots → Level
     void commitPlacedRobots();
 
     void addRobot(std::unique_ptr<Robot> r);
-
     void addPlacedRobot(std::unique_ptr<Robot> r);
 
-    // очистити роботи при виході
     void clearPlacedRobots();
 
     nlohmann::json getStateJson() const;
@@ -32,5 +35,11 @@ public:
 
 private:
     Level level;
+
     Robot* findRobotById(int id);
+    std::vector<Command> collectControllerCommands();  // ← ДОДАНО
+
+    static bool bfs_reachable(const Level& lvl,
+                              int sx, int sy,
+                              const std::pair<int,int>& target); // ← ДОДАНО
 };

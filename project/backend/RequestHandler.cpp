@@ -50,6 +50,8 @@ json RequestHandler::handle(const json& req) {
 
     // ----------------- ADD ROBOT -----------------
     if (action == "add_robot") {
+        if (eng_.isLocked())
+            return json{{"status","error"},{"message","robots_locked"}};
         try {
             std::string type = req.value("robot_type", "worker");
             int x = req.value("x", 0);
@@ -114,6 +116,9 @@ json RequestHandler::handle(const json& req) {
 
 
     if (action == "place_robot") {
+        if (eng_.isLocked())
+        return json{{"status","error"},{"message","robots_locked"}};
+
         int x = req["x"];
         int y = req["y"];
         std::string type = req["robot_type"];
@@ -134,6 +139,9 @@ json RequestHandler::handle(const json& req) {
     }
 
     if (action == "spawn_robot") {
+    if (eng_.isLocked())
+        return json{{"status","error"},{"message","robots_locked"}};
+
     try {
         std::string type = req.value("type", "worker");
         std::string dir  = req.value("dir", "up");
@@ -143,30 +151,24 @@ json RequestHandler::handle(const json& req) {
 
         std::unique_ptr<Robot> r;
 
-        if (type == "worker")
-            r = std::make_unique<WorkerRobot>();
-        else
-            r = std::make_unique<ControllerRobot>();
+    if (type == "worker")
+        r = std::make_unique<WorkerRobot>();
+    else
+        r = std::make_unique<ControllerRobot>();
 
         r->setPosition(x, y);
         r->setDirection(strToDir(dir));
 
-        // ========== ЯКЩО ЦЕ КОНТРОЛЕР — ЗАПИСУЄМО КОМАНДУ ==========
         if (type == "controller" && req.contains("command")) {
-
-            std::string cmdStr = req["command"].get<std::string>();
             Command C;
-            C.robotId = -1;  // неважливо — контролер сам собі виконає команду
-            C.dir = strToDir(dir); // напрям контролера
+            std::string cmdStr = req["command"];
 
-            if (cmdStr == "rotate_cw")
-                C.type = CommandType::RotateCW;
-            else if (cmdStr == "rotate_ccw")
-                C.type = CommandType::RotateCCW;
-            else if (cmdStr == "boost")
-                C.type = CommandType::Boost;
-            else
-                C.type = CommandType::Broadcast;  // запасний варіант
+            if (cmdStr == "rotate_cw")  C.type = CommandType::RotateCW;
+            else if (cmdStr == "rotate_ccw") C.type = CommandType::RotateCCW;
+            else if (cmdStr == "boost") C.type = CommandType::Boost;
+            else                        C.type = CommandType::Broadcast;
+
+            C.dir = strToDir(dir);
 
             static_cast<ControllerRobot*>(r.get())->setCommand(C);
         }
@@ -174,11 +176,39 @@ json RequestHandler::handle(const json& req) {
         eng_.addPlacedRobot(std::move(r));
 
         auto st = eng_.getStateJson();
-        return json{{"status","ok"},{"state", st["state"]}};
+        return json{{"status","ok"}, {"state", st["state"]}};
     }
     catch (std::exception &e) {
-        return json{{"status","error"},{"message", e.what()}};
-    }    
+        return json{{"status","error"}, {"message", e.what()}};
+    }
+}
+
+    
+    // ----------------- RUN STEP -----------------
+    if (action == "run_step") {
+
+        // 1) Виконуємо автоматичний хід
+        eng_.stepAuto();  
+
+        // 2) Отримуємо оновлений стан
+        auto st = eng_.getStateJson();
+
+        // 3) Перевіряємо завершення гри
+        bool win  = eng_.isWin();
+        bool lose = eng_.isLose();
+
+        return json{
+            {"status", "ok"},
+            {"state",  st["state"]},
+            {"finished", win || lose},
+            {"win", win},
+            {"lose", lose}
+        };
+    }
+
+    if (action == "run") {
+        eng_.lock();
+        return json{{"status","ok"}};
 }
 
     return json{{"status","error"},{"message","unknown action"}};

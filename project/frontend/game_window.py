@@ -9,7 +9,7 @@ class GameWindow(tk.Frame):
         super().__init__(parent)
 
         self.backend = backend
-        self.cell = CELL_SIZE   # 🔥 Головне виправлення!
+        self.cell = CELL_SIZE 
 
         # init_state може бути {"status":..., "state": ...}
         if isinstance(init_state, dict) and "state" in init_state:
@@ -31,7 +31,6 @@ class GameWindow(tk.Frame):
         self.draw_grid()
         self.draw_objects(state)
 
-        # 🔥 Клік миші
         self.canvas.bind("<Button-1>", self.on_click)
 
     # -----------------------------------------------------------

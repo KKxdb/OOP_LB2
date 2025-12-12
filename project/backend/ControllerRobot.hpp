@@ -8,11 +8,16 @@ public:
 
     RobotType getType() const override { return RobotType::Controller; }
 
-    // ← СИГНАТУРА №1 — має збігатися з cpp
     void execute(const Command& cmd, WorldView& w) override;
 
-    // ← СИГНАТУРА №2 — також у cpp
     void setCommand(const Command& cmd);
+
+    bool hasPendingCommand() const { return pendingCommand.has_value(); }
+    Command takePendingCommand() {
+        Command c = pendingCommand.value();
+        pendingCommand.reset();
+        return c;
+    }
 
 private:
     std::optional<Command> pendingCommand;

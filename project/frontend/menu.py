@@ -9,7 +9,8 @@ from game_window import GameWindow
 # ---------------------------------------------
 # Константи
 # ---------------------------------------------
-BACKEND_EXEC = r"C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\build\Release\oop_backend.exe"
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))   # ..\project
+BACKEND_EXEC = os.path.join(BASE_DIR, "backend", "build", "Release", "oop_backend.exe")
 LEVELS_DIR = os.path.join(os.path.dirname(__file__), "levels")
 
 
@@ -45,8 +46,8 @@ class MenuApp(tk.Toplevel):
         btn_exit.pack(fill="x", pady=6)
 
     def open_levels(self):
-        LevelsWindow(self.master)   # відкриваємо нове
-        self.destroy()              # закриваємо меню, але root живий!
+        LevelsWindow(self.master)   
+        self.destroy()             
 
     def create_level_dialog(self):
         dlg = CreateLevelDialog(self)
@@ -266,23 +267,51 @@ class GameRunner(tk.Toplevel):
         super().__init__(master)
         self.backend = backend
 
+        # Game window where map and robots are drawn
         self.game = GameWindow(self, backend, initial_state)
         self.game.pack(fill="both", expand=True)
 
+        # Buttons
         top = ttk.Frame(self)
         top.pack(fill="x")
-        ttk.Button(top, text="Step", command=self.step).pack(side="left")
+        ttk.Button(top, text="Почати", command=self.start_game).pack(side="left")
         ttk.Button(top, text="Повернутися", command=self.return_to_menu).pack(side="right")
 
+        self.running = False
 
-    def step(self):
-        resp = self.backend.send({"action": "step"})
-        self.game.update_state(resp)
+    # -------------------------------------------------------
+    def start_game(self):
+        self.running = True
+        self.run_loop()
 
-    def return_to_menu(self):         
+    # -------------------------------------------------------
+    def return_to_menu(self):
         MenuApp(self.master)
         self.destroy()
 
+    # -------------------------------------------------------
+    def run_loop(self):
+        if not self.running:
+            return
+
+        # ВАЖЛИВО: self.backend, а не backend
+        resp = self.backend.send({"action": "run_step"})
+
+        # Якщо кінець гри
+        if resp.get("finished"):
+            if resp.get("win"):
+                messagebox.showinfo("Game", "Перемога!")
+            else:
+                messagebox.showerror("Game", "Поразка!")
+
+            self.running = False
+            return
+
+        # Оновлення карти — важливо викликати self.game
+        self.game.update_state(resp["state"])
+
+        # Запускаємо наступний крок через 2 секунди
+        self.after(2000, self.run_loop)
 
 # ======================================================================
 #                               MAIN ENTRY
