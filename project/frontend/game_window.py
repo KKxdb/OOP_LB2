@@ -11,7 +11,6 @@ class GameWindow(tk.Frame):
         self.backend = backend
         self.cell = CELL_SIZE 
 
-        # init_state може бути {"status":..., "state": ...}
         if isinstance(init_state, dict) and "state" in init_state:
             state = init_state["state"]
         else:
@@ -33,10 +32,8 @@ class GameWindow(tk.Frame):
 
         self.canvas.bind("<Button-1>", self.on_click)
 
-    # -----------------------------------------------------------
-    #                   DRAWING
-    # -----------------------------------------------------------
-
+    # DRAWING
+  
     def draw_grid(self):
         for x in range(self.width):
             for y in range(self.height):
@@ -65,6 +62,8 @@ class GameWindow(tk.Frame):
 
         # Robots
         for r in state["robots"]:
+            if not r.get("alive", True):
+                continue          
             self._robot(r)
 
 
@@ -77,7 +76,7 @@ class GameWindow(tk.Frame):
         if r["type"] == "worker":
             color = "blue"
         elif r["type"] == "controller":
-            color = "orange"  # помаранчевий контролер
+            color = "orange"
         else:
             color = "gray"
 
@@ -114,9 +113,9 @@ class GameWindow(tk.Frame):
             tags="obj"
         )
 
-    # -----------------------------------------------------------
-    #                   BACKEND UPDATE
-    # -----------------------------------------------------------
+
+    #  BACKEND UPDATE
+   
 
     def update_state(self, new_state):
         if isinstance(new_state, dict) and "state" in new_state:
@@ -126,9 +125,7 @@ class GameWindow(tk.Frame):
 
         self.draw_objects(state)
 
-    # -----------------------------------------------------------
-    #              CLICK HANDLER — SPAWN ROBOT
-    # -----------------------------------------------------------
+    # CLICK HANDLER — SPAWN ROBOT
 
     def on_click(self, event):
         x = event.x // self.cell
@@ -140,9 +137,7 @@ class GameWindow(tk.Frame):
 
         menu.post(event.x_root, event.y_root)
 
-    # -----------------------------------------------------------
     #               POPUPS FOR ROBOT OPTIONS
-    # -----------------------------------------------------------
 
     def ask_direction_dialog(self):
         win = tk.Toplevel(self)

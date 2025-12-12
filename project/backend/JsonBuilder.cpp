@@ -12,7 +12,7 @@ json buildLevelJson(const Level& lvl)
     for (int y = 0; y < lvl.getHeight(); ++y) {
         json row = json::array();
         for (int x = 0; x < lvl.getWidth(); ++x) {
-            row.push_back(static_cast<int>(grid[y][x])); // char -> int (46/88/..)
+            row.push_back(static_cast<int>(grid[y][x]));
         }
         j["grid"].push_back(row);
     }

@@ -6,17 +6,13 @@ from tkinter import ttk, messagebox, filedialog
 import subprocess
 from game_window import GameWindow
 
-# ---------------------------------------------
 # Константи
-# ---------------------------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))   # ..\project
 BACKEND_EXEC = os.path.join(BASE_DIR, "backend", "build", "Release", "oop_backend.exe")
 LEVELS_DIR = os.path.join(os.path.dirname(__file__), "levels")
 
 
-# ======================================================================
 #                          MAIN MENU (Toplevel)
-# ======================================================================
 class MenuApp(tk.Toplevel):
     def __init__(self, master):
         super().__init__(master)
@@ -85,10 +81,7 @@ class MenuApp(tk.Toplevel):
         with open(path, "w", encoding="utf-8") as f:
             json.dump(level_data, f, ensure_ascii=False, indent=2)
 
-
-# ======================================================================
-#                     CREATE LEVEL DIALOG (Toplevel)
-# ======================================================================
+#  CREATE LEVEL DIALOG (Toplevel)
 class CreateLevelDialog(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -140,10 +133,7 @@ class CreateLevelDialog(tk.Toplevel):
         MenuApp(self.master)
         self.destroy()
 
-
-# ======================================================================
 #                            LEVELS WINDOW
-# ======================================================================
 class LevelsWindow(tk.Toplevel):
     def __init__(self, master):
         super().__init__(master)
@@ -214,9 +204,7 @@ class LevelsWindow(tk.Toplevel):
         self.destroy()
 
 
-# ======================================================================
 #                              JSON VIEWER
-# ======================================================================
 class Viewer(tk.Toplevel):
     def __init__(self, parent, title, data):
         super().__init__(parent)
@@ -229,10 +217,7 @@ class Viewer(tk.Toplevel):
         txt.insert("1.0", json.dumps(data, ensure_ascii=False, indent=2))
         txt.config(state="disabled")
 
-
-# ======================================================================
-#                     BACKEND PROCESS CONTROLLER
-# ======================================================================
+#    BACKEND PROCESS CONTROLLER
 class BackendProcess:
     def __init__(self, exe_path=BACKEND_EXEC):
         self.exe_path = exe_path
@@ -258,20 +243,15 @@ class BackendProcess:
         if self.proc:
             self.proc.terminate()
 
-
-# ======================================================================
 #                               GAME RUNNER
-# ======================================================================
 class GameRunner(tk.Toplevel):
     def __init__(self, master, backend: BackendProcess, level_path: str, initial_state):
         super().__init__(master)
         self.backend = backend
 
-        # Game window where map and robots are drawn
         self.game = GameWindow(self, backend, initial_state)
         self.game.pack(fill="both", expand=True)
 
-        # Buttons
         top = ttk.Frame(self)
         top.pack(fill="x")
         ttk.Button(top, text="Почати", command=self.start_game).pack(side="left")
@@ -279,22 +259,18 @@ class GameRunner(tk.Toplevel):
 
         self.running = False
 
-    # -------------------------------------------------------
     def start_game(self):
         self.running = True
         self.run_loop()
 
-    # -------------------------------------------------------
     def return_to_menu(self):
         MenuApp(self.master)
         self.destroy()
 
-    # -------------------------------------------------------
     def run_loop(self):
         if not self.running:
             return
 
-        # ВАЖЛИВО: self.backend, а не backend
         resp = self.backend.send({"action": "run_step"})
 
         # Якщо кінець гри
@@ -307,15 +283,12 @@ class GameRunner(tk.Toplevel):
             self.running = False
             return
 
-        # Оновлення карти — важливо викликати self.game
         self.game.update_state(resp["state"])
 
-        # Запускаємо наступний крок через 2 секунди
         self.after(2000, self.run_loop)
 
-# ======================================================================
 #                               MAIN ENTRY
-# ======================================================================
+
 if __name__ == "__main__":
     root = tk.Tk()
     root.withdraw()  # ховаємо root

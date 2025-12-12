@@ -192,3 +192,11 @@ bool Level::isCompleted() const {
     return std::all_of(boxStates.begin(), boxStates.end(),
         [](const Box& b) { return b.delivered; });
 }
+
+const Cell& Level::getCell(int x, int y) const {
+    return gridCells[y][x];
+}
+
+Cell& Level::getCell(int x, int y) {
+    return gridCells[y][x];
+}

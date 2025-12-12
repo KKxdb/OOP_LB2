@@ -1,6 +1,7 @@
 #include "WorkerRobot.hpp"
 #include <algorithm>
 #include <cmath>
+#include "Level.hpp"
 
 static std::pair<int,int> delta(Direction d) {
     switch (d) {
@@ -21,86 +22,109 @@ static Box* findBoxById(std::vector<Box>& boxes, int id) {
     return nullptr;
 }
 
-void WorkerRobot::execute(const Command& cmd, WorldView& w) {
-    if (!state || !state->alive) return;
+void WorkerRobot::execute(const Command& cmd, WorldView& w)
+{
+    RobotState* st = getState();
+    if (!st || !st->alive) return;
 
-    // 🔥 1. Оновлюємо напрям при будь-якій команді
-    state->dir = cmd.dir;
+    switch (cmd.type)
+    {
+        case CommandType::Move:
+        {
+            auto [dx, dy] = delta(cmd.dir);
+            int nx = st->x + dx;
+            int ny = st->y + dy;
 
-    if (cmd.type == CommandType::Move) {
+            // Оновлюємо напрямок для правильних стрілок
+            st->dir = cmd.dir;
 
-        auto [dx, dy] = delta(cmd.dir);
-        int nx = state->x + dx;
-        int ny = state->y + dy;
-
-        if (!inBounds(nx, ny, w.width, w.height)) return;
-
-        auto cellType = w.grid->at(ny).at(nx).type;
-
-        if (cellType == CellType::Wall) {
-            state->alive = false;
-            state->carrying = false;
-            state->boxId.reset();
-            return;
-        }
-
-        // Перемістили робота
-        state->x = nx;
-        state->y = ny;
-
-        // Чи поставили коробку на ціль?
-        if (cellType == CellType::Target && state->carrying && state->boxId) {
-            if (auto* b = findBoxById(*w.boxes, *state->boxId)) {
-                b->x = nx;
-                b->y = ny;
-                b->delivered = true;
-                state->carrying = false;
-                state->boxId.reset();
+            // 1) Вихід за межі → робот зникає
+            if (nx < 0 || ny < 0 || nx >= w.width || ny >= w.height) {
+                st->alive = false;
+                st->carrying = false;
+                st->boxId.reset();
+                return;
             }
-        }
 
-        // Якщо тягнемо коробку — тягнемо разом
-        if (state->carrying && state->boxId) {
-            if (auto* b = findBoxById(*w.boxes, *state->boxId)) {
-                b->x = state->x;
-                b->y = state->y;
+            // 2) Вхід у стіну → робот зникає
+            if ((*w.grid)[ny][nx].type == CellType::Wall) {
+                st->alive = false;
+                st->carrying = false;
+                st->boxId.reset();
+                return;
             }
-        }
-    }
 
-    else if (cmd.type == CommandType::Pick) {
-        if (state->carrying) return;
-        for (auto& b : *w.boxes) {
-            if (!b.delivered && b.x == state->x && b.y == state->y) {
-                state->carrying = true;
-                state->boxId = b.id;
-                break;
+            // 3) Переносимо коробку, якщо робочий її несе
+            if (st->carrying && st->boxId) {
+                for (auto& b : *w.boxes) {
+                    if (b.id == *st->boxId) {
+                        b.x = nx;
+                        b.y = ny;
+                        break;
+                    }
+                }
             }
-        }
-    }
 
-    else if (cmd.type == CommandType::Drop) {
-        if (!state->carrying || !state->boxId) return;
-
-        if (auto* b = findBoxById(*w.boxes, *state->boxId)) {
-            b->x = state->x;
-            b->y = state->y;
+            // 4) Робітник рухається
+            st->x = nx;
+            st->y = ny;
+            break;
         }
 
-        state->carrying = false;
-        state->boxId.reset();
-    }
+        case CommandType::Pick:
+        {
+            if (st->carrying) return;
 
-    else if (cmd.type == CommandType::Give) {
-        if (!state->carrying || !state->boxId) return;
-
-        for (auto& upr : *w.robotStates) {
-            RobotState& r = *upr;
-            if (!r.alive || r.id == state->id) continue;
-            if (r.type != RobotType::Worker) continue;
-            int dx = std::abs(r.x - state->x);
-            int dy = std::abs(r.y - state->y);
-            // use r.carrying, r.boxId, etc.
+            for (auto& b : *w.boxes) {
+                if (b.x == st->x && b.y == st->y && !b.delivered) {
+                    st->carrying = true;
+                    st->boxId = b.id;
+                    return;
+                }
+            }
+            break;
         }
+
+        case CommandType::Drop:
+        {
+            if (!st->carrying || !st->boxId) return;
+
+            for (auto& b : *w.boxes) {
+                if (b.id == *st->boxId) {
+                    b.x = st->x;
+                    b.y = st->y;
+                    break;
+                }
+            }
+
+            st->carrying = false;
+            st->boxId.reset();
+            break;
+        }
+
+        case CommandType::RotateCW:
+        {
+            switch (st->dir) {
+                case Direction::Up:    st->dir = Direction::Right; break;
+                case Direction::Right: st->dir = Direction::Down;  break;
+                case Direction::Down:  st->dir = Direction::Left;  break;
+                case Direction::Left:  st->dir = Direction::Up;    break;
+            }
+            break;
+        }
+
+        case CommandType::RotateCCW:
+        {
+            switch (st->dir) {
+                case Direction::Up:    st->dir = Direction::Left;  break;
+                case Direction::Left:  st->dir = Direction::Down;  break;
+                case Direction::Down:  st->dir = Direction::Right; break;
+                case Direction::Right: st->dir = Direction::Up;    break;
+            }
+            break;
+        }
+
+        default:
+            break;
     }
 }

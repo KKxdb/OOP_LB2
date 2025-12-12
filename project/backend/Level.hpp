@@ -50,6 +50,9 @@ public:
     int getMoves() const { return moves; }
     void incrementMoves() { ++moves; }
 
+    const Cell& getCell(int x, int y) const;
+    Cell& getCell(int x, int y);
+
 private:
     int width, height;
     int moves = 0;

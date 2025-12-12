@@ -35,6 +35,8 @@ struct RobotState {
     bool carrying = false;
     std::optional<int> boxId;
     Direction dir = Direction::Up;
+    bool boosted = false;
+    
 };
 
 // ✔ правильний WorldView

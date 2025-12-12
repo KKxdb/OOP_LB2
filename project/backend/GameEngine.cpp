@@ -131,99 +131,151 @@ void GameEngine::stepAuto() {
     auto& placed = level.getPlacedRobots();
 
     auto moveWorker = [&](Robot* base) {
-        WorkerRobot* w = dynamic_cast<WorkerRobot*>(base);
-        if (!w) return;
+    WorkerRobot* w = dynamic_cast<WorkerRobot*>(base);
+    if (!w) return;
 
-        auto* s = w->getState();
-        if (!s) return;
+    auto* s = w->getState();
+    if (!s) return;
 
-        int dx = 0, dy = 0;
-        switch (s->dir) {
-            case Direction::Up:    dy = -1; break;
-            case Direction::Down:  dy = 1; break;
-            case Direction::Left:  dx = -1; break;
-            case Direction::Right: dx = 1; break;
+    int dx = 0, dy = 0;
+    switch (s->dir) {
+        case Direction::Up:    dy = -1; break;
+        case Direction::Down:  dy = 1; break;
+        case Direction::Left:  dx = -1; break;
+        case Direction::Right: dx = 1; break;
+    }
+
+    int nx = s->x + dx;
+    int ny = s->y + dy;
+
+    // === 1) Якщо виходить за межі — вбити робота ===
+    if (!level.isInside(nx, ny)) {
+        s->alive = false;
+        return;
+    }
+
+    // === 2) Якщо ціль — стіна — теж вбити робота ===
+    CellType ct = level.getCell(nx, ny).type;
+    if (ct == CellType::Wall) {
+        s->alive = false;
+        return;
+    }
+
+    // Перевірка зіткнень з реальними роботами
+    auto check = [&](auto& arr){
+        for (auto& other : arr) {
+            auto* so = other->getState();
+            if (!so) continue;
+            if (so != s && so->x == nx && so->y == ny)
+                return true;
         }
-
-        int nx = s->x + dx;
-        int ny = s->y + dy;
-
-        if (!level.isInside(nx, ny))
-            return;
-
-        // Перевірка зіткнень з реальними роботами
-        auto check = [&](auto& arr){
-            for (auto& other : arr) {
-                auto* so = other->getState();
-                if (!so) continue;
-                if (so != s && so->x == nx && so->y == ny)
-                    return true;
-            }
-            return false;
-        };
-
-        if (check(robots)) return;
-        if (check(placed)) return;
-
-        s->x = nx;
-        s->y = ny;
+        return false;
     };
+
+    if (check(robots)) return;
+    if (check(placed)) return;
+
+    // === 3) Перемістити робота ===
+    s->x = nx;
+    s->y = ny;
+
+    // === 4) Спроба підняти коробку ===
+    // якщо робот нічого не несе
+    if (!s->carrying) {
+        for (auto& b : level.getBoxes()) {
+            if (!b.delivered && b.x == nx && b.y == ny) {
+                s->carrying = true;
+                s->boxId = b.id;
+                break;
+            }
+        }
+    }
+
+    // === 5) Якщо несе коробку — коробка рухається разом з ним ===
+    if (s->carrying && s->boxId.has_value()) {
+        int bid = *s->boxId;
+        for (auto& b : level.getBoxes()) {
+            if (b.id == bid) {
+                b.x = nx;
+                b.y = ny;
+            }
+        }
+    }
+};
 
     auto controllerAction = [&](Robot* base){
-        ControllerRobot* c = dynamic_cast<ControllerRobot*>(base);
-        if (!c) return;
+    ControllerRobot* c = dynamic_cast<ControllerRobot*>(base);
+    if (!c) return;
 
-        if (!c->hasPendingCommand()) return;
+    auto* sc = c->getState();
+    if (!sc) return;
 
-        auto* sc = c->getState();
-        if (!sc) return;
+    int dx = 0, dy = 0;
+    switch (sc->dir) {
+        case Direction::Up:    dy = -1; break;
+        case Direction::Down:  dy = 1; break;
+        case Direction::Left:  dx = -1; break;
+        case Direction::Right: dx = 1; break;
+    }
 
-        Command cmd = c->takePendingCommand();
+    int tx = sc->x + dx;
+    int ty = sc->y + dy;
 
-        int dx = 0, dy = 0;
-        switch (sc->dir) {
-            case Direction::Up:    dy = -1; break;
-            case Direction::Down:  dy = 1; break;
-            case Direction::Left:  dx = -1; break;
-            case Direction::Right: dx = 1; break;
-        }
+    bool acted = false;
 
-        int tx = sc->x + dx;
-        int ty = sc->y + dy;
+    auto applyTo = [&](auto& arr){
+        for (auto& other : arr) {
+            auto* so = other->getState();
+            if (!so) continue;
 
-        auto applyTo = [&](auto& arr){
-            for (auto& other : arr) {
-                WorkerRobot* w = dynamic_cast<WorkerRobot*>(other.get());
-                if (!w) continue;
+            if (so->x == tx && so->y == ty) {
 
-                auto* sw = w->getState();
-                if (!sw) continue;
+                if (!c->hasPendingCommand()) return;
 
-                if (sw->x == tx && sw->y == ty) {
-                    WorldView view{
-                        level.getWidth(),
-                        level.getHeight(),
-                        &level.getGridCells(),
-                        &level.getRobotStates(),
-                        &level.getBoxes()
-                    };
+                Command cmd = c->takePendingCommand();
 
-                    w->execute(cmd, view);
-                }
+                WorldView view{
+                    level.getWidth(),
+                    level.getHeight(),
+                    &level.getGridCells(),
+                    &level.getRobotStates(),
+                    &level.getBoxes()
+                };
+
+                other->execute(cmd, view);
+                acted = true;
+                return;
             }
-        };
-
-        applyTo(robots);
-        applyTo(placed);
+        }
     };
 
-    // 1) Рух робітників
-    for (auto& r : robots) moveWorker(r.get());
-    for (auto& r : placed) moveWorker(r.get());
+    applyTo(robots);
+    if (!acted) applyTo(placed);
+};
 
     // 2) Робота контролерів
     for (auto& r : robots) controllerAction(r.get());
     for (auto& r : placed) controllerAction(r.get());
+
+    auto& robots = level.getRobots();
+    robots.erase(
+        std::remove_if(robots.begin(), robots.end(),
+                    [](const std::unique_ptr<Robot>& r){
+                        auto* s = r->getState();
+                        return s && !s->alive;
+                    }),
+        robots.end()
+    );
+
+    auto& placed = level.getPlacedRobots();
+    placed.erase(
+        std::remove_if(placed.begin(), placed.end(),
+                    [](const std::unique_ptr<Robot>& r){
+                        auto* s = r->getState();
+                        return s && !s->alive;
+                    }),
+        placed.end()
+    );
 
     level.update();
 }

@@ -37,9 +37,9 @@ private:
     Level level;
 
     Robot* findRobotById(int id);
-    std::vector<Command> collectControllerCommands();  // ← ДОДАНО
+    std::vector<Command> collectControllerCommands();  
 
     static bool bfs_reachable(const Level& lvl,
                               int sx, int sy,
-                              const std::pair<int,int>& target); // ← ДОДАНО
+                              const std::pair<int,int>& target);
 };
