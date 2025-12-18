@@ -248,6 +248,8 @@ class GameRunner(tk.Toplevel):
     def __init__(self, master, backend: BackendProcess, level_path: str, initial_state):
         super().__init__(master)
         self.backend = backend
+        self.level_path = level_path 
+        self.initial_state = initial_state
 
         self.game = GameWindow(self, backend, initial_state)
         self.game.pack(fill="both", expand=True)
@@ -261,9 +263,12 @@ class GameRunner(tk.Toplevel):
 
     def start_game(self):
         self.running = True
+        self.game.set_edit_mode(False)
         self.run_loop()
 
     def return_to_menu(self):
+        self.running = False
+        self.backend.stop()
         MenuApp(self.master)
         self.destroy()
 
@@ -273,19 +278,66 @@ class GameRunner(tk.Toplevel):
 
         resp = self.backend.send({"action": "run_step"})
 
-        # Якщо кінець гри
         if resp.get("finished"):
-            if resp.get("win"):
-                messagebox.showinfo("Game", "Перемога!")
-            else:
-                messagebox.showerror("Game", "Поразка!")
-
             self.running = False
+
+            if resp.get("win"):
+                self.show_end_dialog("Перемога!")
+            else:
+                self.show_end_dialog("Поразка!")
+
             return
 
         self.game.update_state(resp["state"])
+        self.after(1000, self.run_loop)
 
-        self.after(2000, self.run_loop)
+    def show_end_dialog(self, text):
+        win = tk.Toplevel(self)
+        win.title("Гра завершена")
+        win.geometry("300x150")
+        win.transient(self)
+        win.grab_set()
+
+        label = tk.Label(win, text=text, font=("Arial", 16))
+        label.pack(pady=20)
+
+        ttk.Button(
+            win,
+            text="Почати заново",
+            command=lambda: self.restart_level(win)
+        ).pack(pady=5)
+
+        ttk.Button(
+            win,
+            text="Повернутись у головне меню",
+            command=lambda: self.back_to_menu(win)
+        ).pack(pady=5)
+    
+    def back_to_menu(self, win):
+        win.destroy()
+        self.backend.stop()
+        self.destroy()
+        MenuApp(self.master)
+
+    def restart_level(self, win):
+        win.destroy()
+      
+        self.backend.stop()
+        self.destroy()
+
+        backend = BackendProcess()
+        backend.start()
+
+        resp = backend.send({
+            "action": "load_level",
+            "path": self.level_path
+        })
+
+        GameRunner(self.master, backend, self.level_path, resp)
+
+
+
+        
 
 #                               MAIN ENTRY
 

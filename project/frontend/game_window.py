@@ -6,6 +6,7 @@ CELL_SIZE = 40
 
 class GameWindow(tk.Frame):
     def __init__(self, parent, backend, init_state):
+        
         super().__init__(parent)
 
         self.backend = backend
@@ -30,7 +31,12 @@ class GameWindow(tk.Frame):
         self.draw_grid()
         self.draw_objects(state)
 
+        self.edit_mode = True
+
         self.canvas.bind("<Button-1>", self.on_click)
+
+    def set_edit_mode(self, enabled: bool):
+        self.edit_mode = enabled
 
     # DRAWING
   
@@ -128,6 +134,8 @@ class GameWindow(tk.Frame):
     # CLICK HANDLER — SPAWN ROBOT
 
     def on_click(self, event):
+        if not self.edit_mode:
+            return
         x = event.x // self.cell
         y = event.y // self.cell
 

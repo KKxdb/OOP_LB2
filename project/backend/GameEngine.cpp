@@ -6,6 +6,7 @@
 using json = nlohmann::json;
 
 GameEngine::GameEngine() : level(10, 10) {}
+bool running_= false;
 
 void GameEngine::loadLevel(Level&& lvl) {
     level = std::move(lvl);
@@ -92,7 +93,7 @@ json GameEngine::getStateJson() const {
     auto append = [&](const auto& arr){
         for (auto& r : arr) {
             auto* s = r->getState();
-            if (!s) continue;
+            if (!s || !s->alive) continue;
 
             st["robots"].push_back({
                 {"id", s->id},
@@ -107,7 +108,11 @@ json GameEngine::getStateJson() const {
     append(level.getRobots());
     append(level.getPlacedRobots());
 
-    return json{ {"state", st} };
+    return {
+    {"state", st},
+    {"finished", isWin() || isLose()},
+    {"win", isWin()}
+};
 }
 
 
@@ -124,161 +129,169 @@ void GameEngine::addPlacedRobot(std::unique_ptr<Robot> r) {
 }
 
 void GameEngine::stepAuto() {
+    running_ = true;
     if (locked_) return;
 
-    // Спільний контейнер — всі реальні роботи
     auto& robots = level.getRobots();
     auto& placed = level.getPlacedRobots();
 
-    auto moveWorker = [&](Robot* base) {
-    WorkerRobot* w = dynamic_cast<WorkerRobot*>(base);
-    if (!w) return;
-
-    auto* s = w->getState();
-    if (!s) return;
-
-    int dx = 0, dy = 0;
-    switch (s->dir) {
-        case Direction::Up:    dy = -1; break;
-        case Direction::Down:  dy = 1; break;
-        case Direction::Left:  dx = -1; break;
-        case Direction::Right: dx = 1; break;
-    }
-
-    int nx = s->x + dx;
-    int ny = s->y + dy;
-
-    // === 1) Якщо виходить за межі — вбити робота ===
-    if (!level.isInside(nx, ny)) {
-        s->alive = false;
-        return;
-    }
-
-    // === 2) Якщо ціль — стіна — теж вбити робота ===
-    CellType ct = level.getCell(nx, ny).type;
-    if (ct == CellType::Wall) {
-        s->alive = false;
-        return;
-    }
-
-    // Перевірка зіткнень з реальними роботами
-    auto check = [&](auto& arr){
-        for (auto& other : arr) {
-            auto* so = other->getState();
-            if (!so) continue;
-            if (so != s && so->x == nx && so->y == ny)
-                return true;
-        }
-        return false;
-    };
-
-    if (check(robots)) return;
-    if (check(placed)) return;
-
-    // === 3) Перемістити робота ===
-    s->x = nx;
-    s->y = ny;
-
-    // === 4) Спроба підняти коробку ===
-    // якщо робот нічого не несе
-    if (!s->carrying) {
-        for (auto& b : level.getBoxes()) {
-            if (!b.delivered && b.x == nx && b.y == ny) {
-                s->carrying = true;
-                s->boxId = b.id;
-                break;
-            }
-        }
-    }
-
-    // === 5) Якщо несе коробку — коробка рухається разом з ним ===
-    if (s->carrying && s->boxId.has_value()) {
-        int bid = *s->boxId;
-        for (auto& b : level.getBoxes()) {
-            if (b.id == bid) {
-                b.x = nx;
-                b.y = ny;
-            }
-        }
-    }
-};
-
+    // ===== КОНТРОЛЕРИ =====
     auto controllerAction = [&](Robot* base){
-    ControllerRobot* c = dynamic_cast<ControllerRobot*>(base);
-    if (!c) return;
+        ControllerRobot* c = dynamic_cast<ControllerRobot*>(base);
+        if (!c) return;
 
-    auto* sc = c->getState();
-    if (!sc) return;
+        auto* sc = c->getState();
+        if (!sc || !c->hasPendingCommand()) return;
 
-    int dx = 0, dy = 0;
-    switch (sc->dir) {
-        case Direction::Up:    dy = -1; break;
-        case Direction::Down:  dy = 1; break;
-        case Direction::Left:  dx = -1; break;
-        case Direction::Right: dx = 1; break;
-    }
-
-    int tx = sc->x + dx;
-    int ty = sc->y + dy;
-
-    bool acted = false;
-
-    auto applyTo = [&](auto& arr){
-        for (auto& other : arr) {
-            auto* so = other->getState();
-            if (!so) continue;
-
-            if (so->x == tx && so->y == ty) {
-
-                if (!c->hasPendingCommand()) return;
-
-                Command cmd = c->takePendingCommand();
-
-                WorldView view{
-                    level.getWidth(),
-                    level.getHeight(),
-                    &level.getGridCells(),
-                    &level.getRobotStates(),
-                    &level.getBoxes()
-                };
-
-                other->execute(cmd, view);
-                acted = true;
-                return;
-            }
+        int dx = 0, dy = 0;
+        switch (sc->dir) {
+            case Direction::Up:    dy = -1; break;
+            case Direction::Down:  dy = 1; break;
+            case Direction::Left:  dx = -1; break;
+            case Direction::Right: dx = 1; break;
         }
+
+        int tx = sc->x + dx;
+        int ty = sc->y + dy;
+
+        auto apply = [&](auto& arr){
+            for (auto& r : arr) {
+                auto* s = r->getState();
+                if (!s) continue;
+
+                if (s->x == tx && s->y == ty) {
+                    Command cmd = c->takePendingCommand();
+
+                    WorldView view{
+                        level.getWidth(),
+                        level.getHeight(),
+                        &level.getGridCells(),
+                        &level.getRobotStates(),
+                        &level.getBoxes()
+                    };
+
+                    r->execute(cmd, view);
+                    return;
+                }
+            }
+        };
+
+        apply(robots);
+        apply(placed);
     };
 
-    applyTo(robots);
-    if (!acted) applyTo(placed);
-};
-
-    // 2) Робота контролерів
     for (auto& r : robots) controllerAction(r.get());
     for (auto& r : placed) controllerAction(r.get());
 
-    auto& robots = level.getRobots();
+
+    // ===== РУХ WORKER =====
+    auto moveWorker = [&](Robot* base) {
+        WorkerRobot* w = dynamic_cast<WorkerRobot*>(base);
+        if (!w) return;
+
+        auto* s = w->getState();
+        if (!s || !s->alive) return;
+
+        int dx = 0, dy = 0;
+        switch (s->dir) {
+            case Direction::Up:    dy = -1; break;
+            case Direction::Down:  dy = 1; break;
+            case Direction::Left:  dx = -1; break;
+            case Direction::Right: dx = 1; break;
+        }
+
+        int nx = s->x + dx;
+        int ny = s->y + dy;
+
+        // 1) вихід за межі
+        if (!level.isInside(nx, ny)) {
+            s->alive = false;
+            return;
+        }
+
+        // 2) стіна
+        if (level.getCell(nx, ny).type == CellType::Wall) {
+            s->alive = false;
+            return;
+        }
+
+        // 3) зіткнення з роботами
+        auto collide = [&](auto& arr) {
+            for (auto& r : arr) {
+                auto* o = r->getState();
+                if (!o || o == s) continue;
+                if (o->x == nx && o->y == ny) return true;
+            }
+            return false;
+        };
+
+        if (collide(robots) || collide(placed)) {
+            s->alive = false;
+            return;
+        }
+
+        // 4) рух
+        s->x = nx;
+        s->y = ny;
+
+        // 5) підбір коробки
+        if (!s->carrying) {
+            for (auto& b : level.getBoxes()) {
+                if (!b.delivered && b.x == nx && b.y == ny) {
+                    s->carrying = true;
+                    s->boxId = b.id;
+                    break;
+                }
+            }
+        }
+
+        // 6) рух коробки + здача
+        if (s->carrying && s->boxId.has_value()) {
+            int bid = *s->boxId;
+            for (auto& b : level.getBoxes()) {
+                if (b.id == bid) {
+                    b.x = nx;
+                    b.y = ny;
+
+                    for (auto& t : level.getTargets()) {
+                        if (t.first == b.x && t.second == b.y) {
+                            b.delivered = true;
+                            s->carrying = false;
+                            s->boxId.reset();
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    };
+
+    // ===== ЗАПУСК РУХУ WORKER =====
+    for (auto& r : robots) moveWorker(r.get());
+    for (auto& r : placed) moveWorker(r.get());
+
+    // ===== ВИДАЛЕННЯ МЕРТВИХ =====
     robots.erase(
         std::remove_if(robots.begin(), robots.end(),
-                    [](const std::unique_ptr<Robot>& r){
-                        auto* s = r->getState();
-                        return s && !s->alive;
-                    }),
+            [](const std::unique_ptr<Robot>& r) {
+                auto* s = r->getState();
+                return s && !s->alive;
+            }),
         robots.end()
     );
 
-    auto& placed = level.getPlacedRobots();
     placed.erase(
         std::remove_if(placed.begin(), placed.end(),
-                    [](const std::unique_ptr<Robot>& r){
-                        auto* s = r->getState();
-                        return s && !s->alive;
-                    }),
+            [](const std::unique_ptr<Robot>& r) {
+                auto* s = r->getState();
+                return s && !s->alive;
+            }),
         placed.end()
     );
 
     level.update();
 }
+
 
 
 
@@ -343,24 +356,29 @@ bool GameEngine::bfs_reachable(
 }
 
 bool GameEngine::isLose() const {
-    const auto& boxes = level.getBoxes();
-    const auto& targets = level.getTargets();
+    // якщо гра ще не запущена — поразки бути не може
+    if (!running_) 
+        return false;
 
-    bool anyUndelivered = false;
-    for (const auto& b : boxes)
-        if (!b.delivered) anyUndelivered = true;
+    auto hasAliveWorker = [&](const auto& robots) {
+        for (const auto& r : robots) {
+            auto* s = r->getState();
+            if (!s) continue;
 
-    if (!anyUndelivered) return false; // можливо перемога
+            if (s->alive && s->type == RobotType::Worker)
+                return true;
+        }
+        return false;
+    };
 
-    if (targets.empty()) return true; // немає куди доставити
+    // перевіряємо всі реальні роботи
+    if (hasAliveWorker(level.getRobots()))
+        return false;
 
-    for (const auto& b : boxes) {
-        if (b.delivered) continue;
+    if (hasAliveWorker(level.getPlacedRobots()))
+        return false;
 
-        for (const auto& t : targets)
-            if (bfs_reachable(level, b.x, b.y, t))
-                return false; // коробка може дістатися цілі
-    }
-
-    return true; // жодна коробка не може дістатись жодної цілі
+    // рух іде, але немає жодного живого Worker — поразка
+    return true;
 }
+
