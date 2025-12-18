@@ -1,0 +1,38 @@
+{
+  "width": 10,
+  "height": 10,
+  "world": {
+    "walls": [
+      [
+        4,
+        2
+      ]
+    ],
+    "boxes": [
+      [
+        6,
+        4
+      ]
+    ],
+    "targets": [
+      [
+        3,
+        6
+      ]
+    ],
+    "robots": [
+      {
+        "type": "worker",
+        "x": 4,
+        "y": 4,
+        "program": []
+      },
+      {
+        "type": "controller",
+        "x": 6,
+        "y": 3,
+        "program": []
+      }
+    ]
+  }
+}

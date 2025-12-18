@@ -16,7 +16,7 @@ LEVELS_DIR = os.path.join(os.path.dirname(__file__), "levels")
 class MenuApp(tk.Toplevel):
     def __init__(self, master):
         super().__init__(master)
-        self.title("OOP Lab — Меню")
+        self.title("Фабрика роботів")
         self.geometry("360x220")
         self._ensure_levels_dir()
         self._build_ui()
@@ -46,40 +46,9 @@ class MenuApp(tk.Toplevel):
         self.destroy()             
 
     def create_level_dialog(self):
-        dlg = CreateLevelDialog(self)
-        CreateLevelDialog(self.master)
-
-        if getattr(dlg, "result", None):
-            name, width, height = dlg.result
-            try:
-                self._create_level_file(name, width, height)
-                messagebox.showinfo("Створено", f"Рівень '{name}' створено")
-            except Exception as e:
-                messagebox.showerror("Помилка", str(e))
-
         self.destroy()
-
-    def _create_level_file(self, name: str, width: int, height: int):
-        safe_name = "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).strip()
-        if not safe_name:
-            raise ValueError("Невірна назва рівня")
-
-        path = os.path.join(LEVELS_DIR, safe_name + ".json")
-
-        if os.path.exists(path):
-            raise FileExistsError("Файл з такою назвою вже існує")
-
-        level_data = {
-            "name": name,
-            "width": width,
-            "height": height,
-            "robots": [],
-            "boxes": [],
-            "targets": []
-        }
-
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(level_data, f, ensure_ascii=False, indent=2)
+        from editor import LevelEditorApp
+        LevelEditorApp()
 
 #  CREATE LEVEL DIALOG (Toplevel)
 class CreateLevelDialog(tk.Toplevel):
@@ -174,8 +143,8 @@ class LevelsWindow(tk.Toplevel):
             row.pack(fill="x", pady=3)
 
             ttk.Label(row, text=fname).pack(side="left")
-            ttk.Button(row, text="Play", command=lambda f=fname: self._play_level(f)).pack(side="right")
-            ttk.Button(row, text="Відкрити", command=lambda f=fname: self._open_level(f)).pack(side="right", padx=6)
+            ttk.Button(row, text="Почати", command=lambda f=fname: self._play_level(f)).pack(side="right")
+            ttk.Button(row, text="Відкрити json файл", command=lambda f=fname: self._open_level(f)).pack(side="right", padx=6)
 
     def _open_level(self, filename):
         path = os.path.join(LEVELS_DIR, filename)
@@ -200,7 +169,7 @@ class LevelsWindow(tk.Toplevel):
 
         resp = backend.send({"action": "load_level", "path": path})
 
-        GameRunner(self.master, backend, path, resp)
+        GameRunner(self.master, backend, path, resp, filename)
         self.destroy()
 
 
@@ -245,8 +214,9 @@ class BackendProcess:
 
 #                               GAME RUNNER
 class GameRunner(tk.Toplevel):
-    def __init__(self, master, backend: BackendProcess, level_path: str, initial_state):
+    def __init__(self, master, backend: BackendProcess, level_path: str, initial_state, filename):
         super().__init__(master)
+        self.title(filename)
         self.backend = backend
         self.level_path = level_path 
         self.initial_state = initial_state
