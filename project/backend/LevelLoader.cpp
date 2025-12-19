@@ -49,7 +49,7 @@ std::optional<Level> LevelLoader::loadFromJson(const std::string& path) {
                 lvl.addRobot(std::move(rp));
             }
         }
-    } else {
+    } /*else {
         // старий простий формат (за потреби)
         if (j.contains("walls")) for (auto &p : j["walls"]) lvl.addWall(p[0], p[1]);
         if (j.contains("targets")) for (auto &p : j["targets"]) lvl.addTarget(p[0], p[1]);
@@ -66,7 +66,7 @@ std::optional<Level> LevelLoader::loadFromJson(const std::string& path) {
                 lvl.addRobot(std::move(rp));
             }
         }
-    }
+    }*/
 
     return lvl;
 }

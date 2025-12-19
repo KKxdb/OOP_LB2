@@ -1,4 +1,4 @@
-#include "JsonBuilder.hpp"
+/*#include "JsonBuilder.hpp"
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -61,4 +61,4 @@ json buildLevelJson(const Level& lvl)
 
     j["state"] = st;
     return j;
-}
+}*/

@@ -212,9 +212,9 @@ class GameWindow(tk.Frame):
             result["cmd"] = c
             win.destroy()
 
-        tk.Button(win, text="Повернути за часовою стрілкою", width=20,
+        tk.Button(win, text="Повернути за часовою стрілкою", width=40,
                   command=lambda: set_cmd("rotate_cw")).pack()
-        tk.Button(win, text="Повернути проти часов. стрілки", width=20,
+        tk.Button(win, text="Повернути проти часов. стрілки", width=40,
                   command=lambda: set_cmd("rotate_ccw")).pack()
 
         win.wait_window()

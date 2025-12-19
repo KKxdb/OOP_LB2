@@ -11,7 +11,7 @@ public:
     bool isLose() const;
 
     bool locked_ = false;
-    bool isLocked() const { return locked_; }
+    //bool isLocked() const { return locked_; }
     void lock() { locked_ = true; }
 
     void stepAuto();

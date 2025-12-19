@@ -50,8 +50,8 @@ json RequestHandler::handle(const json& req) {
 
     // ----------------- ADD ROBOT -----------------
     if (action == "add_robot") {
-        if (eng_.isLocked())
-            return json{{"status","error"},{"message","robots_locked"}};
+        //if (eng_.isLocked())
+         //   return json{{"status","error"},{"message","robots_locked"}};
         try {
             std::string type = req.value("robot_type", "worker");
             int x = req.value("x", 0);
@@ -116,8 +116,8 @@ json RequestHandler::handle(const json& req) {
 
 
     if (action == "place_robot") {
-        if (eng_.isLocked())
-        return json{{"status","error"},{"message","robots_locked"}};
+       // if (eng_.isLocked())
+       // return json{{"status","error"},{"message","robots_locked"}};
 
         int x = req["x"];
         int y = req["y"];
@@ -139,8 +139,8 @@ json RequestHandler::handle(const json& req) {
     }
 
     if (action == "spawn_robot") {
-    if (eng_.isLocked())
-        return json{{"status","error"},{"message","robots_locked"}};
+    //if (eng_.isLocked())
+      //  return json{{"status","error"},{"message","robots_locked"}};
 
     try {
         std::string type = req.value("type", "worker");

@@ -15,7 +15,7 @@ set(BACKEND_SOURCES
     LevelLoader.cpp
     RequestHandler.cpp
     WorkerRobot.cpp
-    JsonBuilder.cpp
+    #JsonBuilder.cpp
 )
 add_executable(oop_backend ${BACKEND_SOURCES})
 

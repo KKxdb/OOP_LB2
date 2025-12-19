@@ -33,6 +33,7 @@ void GameEngine::spawnPlacedRobot(int x, int y, const std::string& type) {
     r->setPosition(x, y);
     level.getPlacedRobots().push_back(std::move(r));
 }
+
 void GameEngine::commitPlacedRobots() {
     for (auto& r : level.getPlacedRobots())
         level.addRobot(std::move(r));
@@ -130,7 +131,7 @@ void GameEngine::addPlacedRobot(std::unique_ptr<Robot> r) {
 
 void GameEngine::stepAuto() {
     running_ = true;
-    if (locked_) return;
+    //if (locked_) return;
 
     auto& robots = level.getRobots();
     auto& placed = level.getPlacedRobots();
@@ -266,11 +267,11 @@ void GameEngine::stepAuto() {
         }
     };
 
-    // ===== ЗАПУСК РУХУ WORKER =====
+    // ЗАПУСК РУХУ WORKER 
     for (auto& r : robots) moveWorker(r.get());
     for (auto& r : placed) moveWorker(r.get());
 
-    // ===== ВИДАЛЕННЯ МЕРТВИХ =====
+    //  ВИДАЛЕННЯ МЕРТВИХ 
     robots.erase(
         std::remove_if(robots.begin(), robots.end(),
             [](const std::unique_ptr<Robot>& r) {
@@ -315,7 +316,7 @@ bool GameEngine::isWin() const {
     return level.isCompleted();
 }
 
-bool GameEngine::bfs_reachable(
+/*bool GameEngine::bfs_reachable(
     const Level& lvl,
     int sx, int sy,
     const std::pair<int,int>& target)
@@ -353,7 +354,7 @@ bool GameEngine::bfs_reachable(
     }
 
     return false;
-}
+}*/
 
 bool GameEngine::isLose() const {
     // якщо гра ще не запущена — поразки бути не може

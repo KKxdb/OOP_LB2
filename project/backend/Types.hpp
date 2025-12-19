@@ -39,7 +39,7 @@ struct RobotState {
     
 };
 
-// ✔ правильний WorldView
+// правильний WorldView
 struct WorldView {
     int width;
     int height;

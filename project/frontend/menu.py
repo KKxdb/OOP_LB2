@@ -51,56 +51,56 @@ class MenuApp(tk.Toplevel):
         LevelEditorApp()
 
 #  CREATE LEVEL DIALOG (Toplevel)
-class CreateLevelDialog(tk.Toplevel):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.title("Створити рівень")
-        self.result = None
-        self.resizable(False, False)
-        self._build_ui()
-        self.grab_set()
+# class CreateLevelDialog(tk.Toplevel):
+#     def __init__(self, parent):
+#         super().__init__(parent)
+#         self.title("Створити рівень")
+#         self.result = None
+#         self.resizable(False, False)
+#         self._build_ui()
+#         self.grab_set()
 
-    def _build_ui(self):
-        frm = ttk.Frame(self, padding=12)
-        frm.pack(fill="both", expand=True)
+    # def _build_ui(self):
+    #     frm = ttk.Frame(self, padding=12)
+    #     frm.pack(fill="both", expand=True)
 
-        ttk.Label(frm, text="Назва рівня").grid(row=0, column=0, sticky="w")
-        self.name_var = tk.StringVar()
-        ttk.Entry(frm, textvariable=self.name_var, width=30).grid(row=0, column=1, pady=4)
+    #     ttk.Label(frm, text="Назва рівня").grid(row=0, column=0, sticky="w")
+    #     self.name_var = tk.StringVar()
+    #     ttk.Entry(frm, textvariable=self.name_var, width=30).grid(row=0, column=1, pady=4)
 
-        ttk.Label(frm, text="Ширина").grid(row=1, column=0, sticky="w")
-        self.width_var = tk.IntVar(value=10)
-        ttk.Entry(frm, textvariable=self.width_var, width=10).grid(row=1, column=1, pady=4, sticky="w")
+    #     ttk.Label(frm, text="Ширина").grid(row=1, column=0, sticky="w")
+    #     self.width_var = tk.IntVar(value=10)
+    #     ttk.Entry(frm, textvariable=self.width_var, width=10).grid(row=1, column=1, pady=4, sticky="w")
 
-        ttk.Label(frm, text="Висота").grid(row=2, column=0, sticky="w")
-        self.height_var = tk.IntVar(value=10)
-        ttk.Entry(frm, textvariable=self.height_var, width=10).grid(row=2, column=1, pady=4, sticky="w")
+    #     ttk.Label(frm, text="Висота").grid(row=2, column=0, sticky="w")
+    #     self.height_var = tk.IntVar(value=10)
+    #     ttk.Entry(frm, textvariable=self.height_var, width=10).grid(row=2, column=1, pady=4, sticky="w")
 
-        btns = ttk.Frame(frm)
-        btns.grid(row=3, column=0, columnspan=2, pady=(10, 0))
+    #     btns = ttk.Frame(frm)
+    #     btns.grid(row=3, column=0, columnspan=2, pady=(10, 0))
 
-        ttk.Button(btns, text="Створити", command=self._on_create).pack(side="left", padx=6)
-        ttk.Button(btns, text="Повернутись", command=self.go_back).pack(side="left", padx=6)
+    #     ttk.Button(btns, text="Створити", command=self._on_create).pack(side="left", padx=6)
+    #     ttk.Button(btns, text="Повернутись", command=self.go_back).pack(side="left", padx=6)
 
-    def _on_create(self):
-        name = self.name_var.get().strip()
-        if not name:
-            messagebox.showwarning("Помилка", "Введіть назву рівня")
-            return
+    # def _on_create(self):
+    #     name = self.name_var.get().strip()
+    #     if not name:
+    #         messagebox.showwarning("Помилка", "Введіть назву рівня")
+    #         return
 
-        width = int(self.width_var.get())
-        height = int(self.height_var.get())
+    #     width = int(self.width_var.get())
+    #     height = int(self.height_var.get())
 
-        if width <= 0 or height <= 0:
-            messagebox.showwarning("Помилка", "Розміри мають бути додатні")
-            return
+    #     if width <= 0 or height <= 0:
+    #         messagebox.showwarning("Помилка", "Розміри мають бути додатні")
+    #         return
 
-        self.result = (name, width, height)
-        self.destroy()
+    #     self.result = (name, width, height)
+    #     self.destroy()
 
-    def go_back(self):
-        MenuApp(self.master)
-        self.destroy()
+    # def go_back(self):
+    #     MenuApp(self.master)
+    #     self.destroy()
 
 #                            LEVELS WINDOW
 class LevelsWindow(tk.Toplevel):

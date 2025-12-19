@@ -44,7 +44,7 @@ void ControllerRobot::execute(const Command& cmd, WorldView& w)
             break;
         }
 
-        case CommandType::Boost:
+        /*case CommandType::Boost:
         {
             for (auto& upr : *w.robotStates)
             {
@@ -56,7 +56,7 @@ void ControllerRobot::execute(const Command& cmd, WorldView& w)
                 }
             }
             break;
-        }
+        }*/
 
         default:
             break;

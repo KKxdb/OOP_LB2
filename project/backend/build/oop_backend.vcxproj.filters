@@ -22,9 +22,6 @@
     <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\WorkerRobot.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\JsonBuilder.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\CMakeLists.txt" />

@@ -339,7 +339,6 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\LevelLoader.cpp" />
     <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\RequestHandler.cpp" />
     <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\WorkerRobot.cpp" />
-    <ClCompile Include="C:\Users\Кирило\Documents\GitHub\OOP_LB2\project\backend\JsonBuilder.cpp" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
